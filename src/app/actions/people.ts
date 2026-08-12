@@ -169,13 +169,37 @@ export async function updateEvent(
 }
 
 export async function deleteGuestList(listId: string) {
-  await requireSession();
+  const session = await requireSession();
   const list = await prisma.guestList.findUniqueOrThrow({
     where: { id: listId },
   });
   if (list.slug === "archived" || list.kind === "archived") {
     throw new Error("The Archived shortcut can’t be deleted.");
   }
+
+  if (list.kind === "event") {
+    const invited = await prisma.person.findMany({
+      where: { upcomingInviteEventId: listId },
+    });
+    for (const person of invited) {
+      await prisma.person.update({
+        where: { id: person.id },
+        data: {
+          upcomingInviteStatus: "none",
+          upcomingInvitedOn: null,
+          upcomingInviteEventId: null,
+          sent:
+            person.sent &&
+            person.upcomingInvitedOn &&
+            person.sent === person.upcomingInvitedOn
+              ? null
+              : person.sent,
+          lastEditedBy: session.name,
+        },
+      });
+    }
+  }
+
   await prisma.guestList.delete({ where: { id: listId } });
   revalidatePath("/");
   return { id: listId };

@@ -1419,6 +1419,29 @@ export function Dashboard({
             try {
               await deleteGuestList(id);
               setLists((prev) => prev.filter((l) => l.id !== id));
+              setItems((prev) =>
+                prev.map((p) => {
+                  const memberships = p.memberships.filter(
+                    (m) => m.listId !== id,
+                  );
+                  if (p.upcomingInviteEventId !== id) {
+                    return { ...p, memberships };
+                  }
+                  return {
+                    ...p,
+                    memberships,
+                    upcomingInviteStatus: "none",
+                    upcomingInvitedOn: null,
+                    upcomingInviteEventId: null,
+                    sent:
+                      p.sent &&
+                      p.upcomingInvitedOn &&
+                      p.sent === p.upcomingInvitedOn
+                        ? null
+                        : p.sent,
+                  };
+                }),
+              );
               setTabId(ADDRESS_BOOK_ID);
               setMessage(`Deleted “${name}”.`);
               window.setTimeout(() => setMessage(null), 2000);
