@@ -422,6 +422,7 @@ export function Dashboard({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkTagsOpen, setBulkTagsOpen] = useState(false);
   const [bulkEventOpen, setBulkEventOpen] = useState(false);
+  const [bulkShortcutOpen, setBulkShortcutOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [invitePersonIds, setInvitePersonIds] = useState<string[]>([]);
   const [invitingId, setInvitingId] = useState<string | null>(null);
@@ -467,6 +468,10 @@ export function Dashboard({
   const shortcutLists = useMemo(
     () =>
       lists.filter((l) => l.kind === "shortcut" || l.kind === "archived"),
+    [lists],
+  );
+  const addableShortcuts = useMemo(
+    () => lists.filter((l) => l.kind === "shortcut"),
     [lists],
   );
   const eventLists = useMemo(
@@ -1174,6 +1179,7 @@ export function Dashboard({
         onClear={() => setSelectedIds(new Set())}
         onEditTags={() => setBulkTagsOpen(true)}
         onAddToEvent={() => setBulkEventOpen(true)}
+        onAddToShortcut={() => setBulkShortcutOpen(true)}
         onInvite={() => {
           setInvitePersonIds([...selectedIds]);
           setInviteOpen(true);
@@ -1320,6 +1326,18 @@ export function Dashboard({
         onClose={() => setBulkEventOpen(false)}
         onSaved={(event, added) => {
           applyAddedToEvent(event, [...selectedIds], added, false);
+        }}
+      />
+
+      <BulkEventModal
+        open={bulkShortcutOpen}
+        personIds={[...selectedIds]}
+        events={addableShortcuts}
+        preferredEventId={isShortcutTab ? activeList?.id : null}
+        mode="shortcut"
+        onClose={() => setBulkShortcutOpen(false)}
+        onSaved={(list, added) => {
+          applyAddedToEvent(list, [...selectedIds], added, false);
         }}
       />
 

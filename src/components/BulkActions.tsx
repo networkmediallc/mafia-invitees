@@ -16,6 +16,7 @@ export function BulkBar({
   onClear,
   onEditTags,
   onAddToEvent,
+  onAddToShortcut,
   onInvite,
   onArchive,
   onUnarchive,
@@ -29,6 +30,7 @@ export function BulkBar({
   onClear: () => void;
   onEditTags: () => void;
   onAddToEvent: () => void;
+  onAddToShortcut: () => void;
   onInvite: () => void;
   onArchive: () => void;
   onUnarchive: () => void;
@@ -47,6 +49,9 @@ export function BulkBar({
       </button>
       <button type="button" className="ghost-btn" onClick={onAddToEvent}>
         Add to event
+      </button>
+      <button type="button" className="ghost-btn" onClick={onAddToShortcut}>
+        Add to shortcut
       </button>
       <button type="button" className="ghost-btn" onClick={onInvite}>
         Invite
@@ -236,7 +241,7 @@ export function BulkEventModal({
   personIds: string[];
   events: GuestListDTO[];
   preferredEventId?: string | null;
-  mode?: "add" | "invite";
+  mode?: "add" | "invite" | "shortcut";
   onClose: () => void;
   onSaved: (event: GuestListDTO, added: number) => void;
 }) {
@@ -266,18 +271,39 @@ export function BulkEventModal({
   const heading =
     mode === "invite"
       ? `Invite ${countLabel}`
-      : `Add ${personIds.length} to event`;
-  const eyebrow = mode === "invite" ? "Upcoming game" : "Bulk add";
-  const confirmLabel = mode === "invite" ? "Invite to event" : "Add to event";
+      : mode === "shortcut"
+        ? `Add ${personIds.length} to shortcut`
+        : `Add ${personIds.length} to event`;
+  const eyebrow =
+    mode === "invite"
+      ? "Upcoming game"
+      : mode === "shortcut"
+        ? "Shortcuts"
+        : "Bulk add";
+  const confirmLabel =
+    mode === "invite"
+      ? "Invite to event"
+      : mode === "shortcut"
+        ? "Add to shortcut"
+        : "Add to event";
+  const listLabel = mode === "shortcut" ? "Shortcut" : "Event";
+  const emptyCopy =
+    mode === "shortcut"
+      ? "No shortcuts yet. Create one from the Shortcuts menu, then come back."
+      : "No events yet. Create one with + New event, then come back.";
 
   function save() {
     if (!eventId) {
-      setError("Create an event first, then try again.");
+      setError(
+        mode === "shortcut"
+          ? "Create a shortcut first, then try again."
+          : "Create an event first, then try again.",
+      );
       return;
     }
     const event = events.find((e) => e.id === eventId);
     if (!event) {
-      setError("Pick an event.");
+      setError(mode === "shortcut" ? "Pick a shortcut." : "Pick an event.");
       return;
     }
     setError(null);
@@ -290,7 +316,13 @@ export function BulkEventModal({
         onSaved(event, result.added);
         onClose();
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Could not add to event.");
+        setError(
+          e instanceof Error
+            ? e.message
+            : mode === "shortcut"
+              ? "Could not add to shortcut."
+              : "Could not add to event.",
+        );
       }
     });
   }
@@ -316,17 +348,26 @@ export function BulkEventModal({
         <p className="choice-copy">
           {mode === "invite"
             ? "Which event should they be invited to? They’ll be added to that event’s list."
-            : "Pick an event list to add the selected people to."}
+            : mode === "shortcut"
+              ? "Pick a shortcut list to add the selected people to."
+              : "Pick an event list to add the selected people to."}
         </p>
         {events.length ? (
           <label className="bulk-event-label">
-            Event
+            {listLabel}
             <select
               className="filter"
               value={eventId}
               onChange={(e) => setEventId(e.target.value)}
             >
               {events.map((e) => {
+                if (mode === "shortcut") {
+                  return (
+                    <option key={e.id} value={e.id}>
+                      {e.name}
+                    </option>
+                  );
+                }
                 const meta = eventMetaLine(e);
                 const past = isPastEvent(e);
                 return (
@@ -339,10 +380,7 @@ export function BulkEventModal({
             </select>
           </label>
         ) : (
-          <p className="choice-copy">
-            No events yet. Create one with <strong>+ New event</strong>, then
-            come back.
-          </p>
+          <p className="choice-copy">{emptyCopy}</p>
         )}
         {error ? <p className="form-error">{error}</p> : null}
         <div className="choice-actions" style={{ marginTop: "1rem" }}>
