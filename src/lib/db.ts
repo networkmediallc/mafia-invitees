@@ -4,7 +4,7 @@ import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaClient } from "@/generated/prisma/client";
 
 /** Bump when GuestList / Person fields change so the hot-reload singleton is replaced. */
-const PRISMA_SCHEMA_VERSION = 5;
+const PRISMA_SCHEMA_VERSION = 6;
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
@@ -12,11 +12,15 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function resolveSqliteFileUrl() {
-  const raw = process.env.DATABASE_URL ?? "file:../data/mafia.db";
+  const volume = process.env.RAILWAY_VOLUME_MOUNT_PATH?.trim();
+  if (volume) {
+    return `file:${path.join(volume, "mafia.db")}`;
+  }
+
+  const raw = process.env.DATABASE_URL?.trim() || "file:../data/mafia.db";
   if (!raw.startsWith("file:")) return raw;
   const filePath = raw.slice("file:".length);
   if (path.isAbsolute(filePath)) return raw;
-  // Resolve relative to prisma/ (where migrate also resolves from)
   const absolute = path.resolve(process.cwd(), "prisma", filePath);
   return `file:${absolute}`;
 }
@@ -25,7 +29,6 @@ function createClient() {
   const tursoUrl = process.env.TURSO_DATABASE_URL?.trim();
   const tursoToken = process.env.TURSO_AUTH_TOKEN?.trim();
 
-  // Hosted SQLite (Turso / libSQL) — required for Netlify / serverless
   if (tursoUrl) {
     const adapter = new PrismaLibSql({
       url: tursoUrl,
@@ -34,7 +37,6 @@ function createClient() {
     return new PrismaClient({ adapter });
   }
 
-  // Local file SQLite
   const adapter = new PrismaBetterSqlite3({ url: resolveSqliteFileUrl() });
   return new PrismaClient({ adapter });
 }
@@ -47,10 +49,8 @@ function getClient() {
     return globalForPrisma.prisma;
   }
   const client = createClient();
-  if (process.env.NODE_ENV !== "production") {
-    globalForPrisma.prisma = client;
-    globalForPrisma.prismaSchemaVersion = PRISMA_SCHEMA_VERSION;
-  }
+  globalForPrisma.prisma = client;
+  globalForPrisma.prismaSchemaVersion = PRISMA_SCHEMA_VERSION;
   return client;
 }
 
