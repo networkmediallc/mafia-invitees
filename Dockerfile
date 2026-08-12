@@ -6,8 +6,12 @@ RUN apt-get update \
 
 WORKDIR /app
 
+# Copy enough for npm install + prisma postinstall before full source
 COPY package.json package-lock.json ./
-RUN npm ci --include=dev --ignore-scripts
+COPY prisma ./prisma
+COPY prisma.config.ts ./
+
+RUN npm ci --include=dev
 
 COPY . .
 
@@ -19,10 +23,11 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
     SESSION_SECRET=$SESSION_SECRET \
     APP_PASSWORD=$APP_PASSWORD
 
-RUN npx prisma generate && npm run build \
+RUN npx prisma generate \
+  && npm rebuild better-sqlite3 \
+  && npm run build \
   && npm prune --omit=dev
 
-# Do not bake build-only DB/secrets into runtime — Railway provides real values
 ENV DATABASE_URL= \
     SESSION_SECRET= \
     APP_PASSWORD= \
