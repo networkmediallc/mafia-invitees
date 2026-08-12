@@ -7,6 +7,7 @@ import { CATEGORIES, type CategoryKey } from "@/lib/categories";
 import { prisma } from "@/lib/db";
 import { slugifyListName, toGuestListDTO } from "@/lib/list-kinds";
 import { syncRegionListsFromTags } from "@/lib/lists";
+import { attendanceSummaryFromStatuses } from "@/lib/people";
 
 const categoryKeys = CATEGORIES.map((c) => c.key) as [
   CategoryKey,
@@ -121,6 +122,10 @@ export async function createGuestList(
     },
   });
 
+  if (kind === "event") {
+    await ensureGameEventForList(list);
+  }
+
   revalidatePath("/");
   return toGuestListDTO(list);
 }
@@ -156,6 +161,8 @@ export async function updateEvent(
     where: { id: listId },
     data: { name, eventDate, venue, city },
   });
+
+  await ensureGameEventForList(updated);
 
   revalidatePath("/");
   return toGuestListDTO(updated);
@@ -681,4 +688,107 @@ export async function setPersonArchived(id: string, archived: boolean) {
 
   revalidatePath("/");
   return updated;
+}
+
+const attendanceStatusSchema = z.enum([
+  "attended",
+  "did_not_attend",
+  "not_on_mailing_list",
+  "",
+]);
+
+async function ensureGameEventForList(list: {
+  name: string;
+  slug: string;
+  sortOrder: number;
+}) {
+  return prisma.gameEvent.upsert({
+    where: { slug: list.slug },
+    create: {
+      name: list.name,
+      slug: list.slug,
+      sortOrder: list.sortOrder,
+    },
+    update: {
+      name: list.name,
+      sortOrder: list.sortOrder,
+    },
+  });
+}
+
+export async function setPersonAttendances(
+  personId: string,
+  rows: {
+    eventId?: string | null;
+    guestListId?: string | null;
+    slug?: string | null;
+    name?: string | null;
+    status: string;
+  }[],
+) {
+  const session = await requireSession();
+  await prisma.person.findUniqueOrThrow({ where: { id: personId } });
+
+  for (const row of rows) {
+    const parsed = attendanceStatusSchema.parse(row.status ?? "");
+    let eventId = row.eventId?.trim() || null;
+
+    if (!eventId && row.guestListId) {
+      const list = await prisma.guestList.findUniqueOrThrow({
+        where: { id: row.guestListId },
+      });
+      if (list.kind !== "event") {
+        throw new Error("Attendance can only be set for events.");
+      }
+      const gameEvent = await ensureGameEventForList(list);
+      eventId = gameEvent.id;
+    }
+
+    if (!eventId && row.slug && row.name) {
+      const gameEvent = await prisma.gameEvent.upsert({
+        where: { slug: row.slug },
+        create: {
+          name: row.name,
+          slug: row.slug,
+          sortOrder: 0,
+        },
+        update: { name: row.name },
+      });
+      eventId = gameEvent.id;
+    }
+
+    if (!eventId) continue;
+
+    if (!parsed) {
+      await prisma.eventAttendance.deleteMany({
+        where: { personId, eventId },
+      });
+      continue;
+    }
+
+    await prisma.eventAttendance.upsert({
+      where: {
+        personId_eventId: { personId, eventId },
+      },
+      create: { personId, eventId, status: parsed },
+      update: { status: parsed },
+    });
+  }
+
+  const all = await prisma.eventAttendance.findMany({
+    where: { personId },
+    select: { status: true },
+  });
+  const summary = attendanceSummaryFromStatuses(all.map((a) => a.status));
+
+  await prisma.person.update({
+    where: { id: personId },
+    data: {
+      ...summary,
+      lastEditedBy: session.name,
+    },
+  });
+
+  revalidatePath("/");
+  return { personId };
 }

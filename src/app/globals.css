@@ -706,6 +706,19 @@ textarea {
   background: rgba(255, 229, 0, 0.04);
 }
 
+.person-row.is-archived {
+  opacity: 0.48;
+  background: rgba(16, 21, 28, 0.04);
+  box-shadow: none;
+}
+
+.person-row.is-archived .person-main h3,
+.person-row.is-archived .person-meta,
+.person-row.is-archived .person-notes,
+.person-row.is-archived .tag-empty {
+  color: var(--ink-soft);
+}
+
 .row-select {
   display: grid;
   place-items: center;
@@ -863,7 +876,7 @@ textarea {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 0.75rem;
-  align-items: start;
+  align-items: center;
   font-size: 0.9rem;
 }
 
@@ -877,15 +890,36 @@ textarea {
   font-weight: 600;
 }
 
-.attendance-row.status-attended .attendance-status {
-  color: #9be3b4;
+.attendance-select {
+  min-width: 10.5rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.85rem;
 }
 
-.attendance-row.status-did_not_attend .attendance-status {
-  color: #e0a0a0;
+.meta-hint {
+  margin: 0 0 0.65rem;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  line-height: 1.4;
 }
 
-.attendance-row.status-not_on_mailing_list .attendance-status {
+.attendance-row.status-attended .attendance-status,
+.attendance-row.status-attended .attendance-select {
+  color: #0f6b5c;
+}
+
+.attendance-row.status-did_not_attend .attendance-status,
+.attendance-row.status-did_not_attend .attendance-select {
+  color: #a11d26;
+}
+
+.attendance-row.status-not_on_mailing_list .attendance-status,
+.attendance-row.status-not_on_mailing_list .attendance-select {
   color: var(--ink-soft);
 }
 

@@ -15,7 +15,7 @@ export const CATEGORIES = [
   { key: "journalist", label: "Journalist" },
   { key: "rando", label: "Rando" },
   { key: "outOfTown", label: "Out of Town" },
-  { key: "formerPlayer", label: "Former Player" },
+  { key: "formerPlayer", label: "Archived" },
 ] as const;
 
 export type CategoryKey = (typeof CATEGORIES)[number]["key"];

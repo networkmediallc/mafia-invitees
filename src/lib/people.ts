@@ -80,11 +80,36 @@ export function toPersonDTO(person: PersonWithRelations): PersonDTO {
   };
 }
 
+export const ATTENDANCE_STATUSES = [
+  { value: "attended", label: "Attended" },
+  { value: "did_not_attend", label: "Did not attend" },
+  { value: "not_on_mailing_list", label: "Wasn't Invited" },
+] as const;
+
+export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number]["value"];
+
+export type AttendanceEventOption = {
+  /** GameEvent id when already linked; null until first save for a past GuestList */
+  id: string | null;
+  guestListId?: string | null;
+  name: string;
+  slug: string;
+  sortOrder: number;
+};
+
 export function attendanceLabel(status: string) {
-  if (status === "attended") return "Attended";
-  if (status === "did_not_attend") return "Did not attend";
-  if (status === "not_on_mailing_list") return "Wasn't Invited";
-  return status;
+  const found = ATTENDANCE_STATUSES.find((s) => s.value === status);
+  return found?.label ?? status;
+}
+
+export function attendanceSummaryFromStatuses(statuses: string[]) {
+  if (statuses.includes("attended")) {
+    return { attended: "Yes", previousPlayer: true };
+  }
+  if (statuses.includes("did_not_attend")) {
+    return { attended: "No", previousPlayer: false };
+  }
+  return { attended: null as string | null, previousPlayer: false };
 }
 
 export function personCategories(person: Pick<PersonDTO, CategoryKey>) {

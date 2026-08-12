@@ -51,6 +51,7 @@ import {
   displayName,
   membershipForList,
   personCategories,
+  type AttendanceEventOption,
   type PersonDTO,
 } from "@/lib/people";
 
@@ -67,6 +68,7 @@ function defaultTabId(lists: GuestListDTO[]) {
 type Props = {
   people: PersonDTO[];
   lists: GuestListDTO[];
+  attendanceEvents: AttendanceEventOption[];
   userName: string;
 };
 
@@ -81,12 +83,14 @@ function PersonRow({
   onInvite,
   onUninvite,
   inviting,
+  dimmed,
 }: {
   person: PersonDTO;
   rank: number;
   showRank: boolean;
   sortable: boolean;
   selected: boolean;
+  dimmed?: boolean;
   onToggleSelect: (id: string) => void;
   onEdit: (p: PersonDTO) => void;
   onInvite: (p: PersonDTO) => void;
@@ -120,7 +124,7 @@ function PersonRow({
     <article
       ref={setNodeRef}
       style={style}
-      className={`person-row ${isDragging ? "dragging" : ""} ${showRank ? "" : "no-rank"} ${selected ? "selected" : ""}`}
+      className={`person-row ${isDragging ? "dragging" : ""} ${showRank ? "" : "no-rank"} ${selected ? "selected" : ""} ${dimmed ? "is-archived" : ""}`}
     >
       <label className="row-select">
         <input
@@ -395,7 +399,12 @@ function AddressBookPicker({
   );
 }
 
-export function Dashboard({ people, lists: initialLists, userName }: Props) {
+export function Dashboard({
+  people,
+  lists: initialLists,
+  attendanceEvents,
+  userName,
+}: Props) {
   const [lists, setLists] = useState(initialLists);
   const [tabId, setTabId] = useState(() => defaultTabId(initialLists));
   const [query, setQuery] = useState("");
@@ -1157,6 +1166,7 @@ export function Dashboard({ people, lists: initialLists, userName }: Props) {
         onRemoveFromEvent={runBulkRemoveFromEvent}
         showRemoveFromEvent={isEventTab}
         showUnarchive={isArchivedTab}
+        showDelete={isAddressBook}
       />
 
       {isAddressBook ? (
@@ -1209,6 +1219,7 @@ export function Dashboard({ people, lists: initialLists, userName }: Props) {
                 sortable={canReorder}
                 selected={selectedIds.has(person.id)}
                 onToggleSelect={toggleSelect}
+                dimmed={isAddressBook && person.archived}
                 rank={
                   isRankedTab && activeList
                     ? (membershipForList(person, activeList.id)?.rank ??
@@ -1232,6 +1243,8 @@ export function Dashboard({ people, lists: initialLists, userName }: Props) {
         open={editorOpen}
         person={editing}
         listId={isAddressBook ? null : (activeList?.id ?? null)}
+        allowDelete={isAddressBook}
+        attendanceEvents={attendanceEvents}
         onClose={() => setEditorOpen(false)}
       />
 

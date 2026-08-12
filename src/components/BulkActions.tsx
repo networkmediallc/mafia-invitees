@@ -22,6 +22,7 @@ export function BulkBar({
   onRemoveFromEvent,
   showRemoveFromEvent,
   showUnarchive,
+  showDelete,
 }: {
   count: number;
   onClear: () => void;
@@ -33,6 +34,7 @@ export function BulkBar({
   onRemoveFromEvent: () => void;
   showRemoveFromEvent: boolean;
   showUnarchive: boolean;
+  showDelete: boolean;
 }) {
   if (count < 1) return null;
   return (
@@ -58,9 +60,11 @@ export function BulkBar({
           Archive
         </button>
       )}
-      <button type="button" className="danger-btn" onClick={onDelete}>
-        Delete
-      </button>
+      {showDelete ? (
+        <button type="button" className="danger-btn" onClick={onDelete}>
+          Delete
+        </button>
+      ) : null}
       <button type="button" className="ghost-btn" onClick={onClear}>
         Clear
       </button>

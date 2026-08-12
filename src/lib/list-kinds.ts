@@ -1,3 +1,5 @@
+import type { AttendanceEventOption } from "@/lib/people";
+
 export type ListKind = "shortcut" | "event" | "archived";
 
 export type GuestListDTO = {
@@ -108,4 +110,59 @@ export function compareEventsByDate(
   return (
     a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)
   );
+}
+
+export type GameEventOption = {
+  id: string;
+  name: string;
+  slug: string;
+  sortOrder: number;
+};
+
+/**
+ * Attendance editors show historical GameEvents plus past GuestList events.
+ * Upcoming GuestList events (matched by slug) are withheld until the date passes.
+ */
+export function buildAttendanceEventOptions(
+  gameEvents: GameEventOption[],
+  lists: GuestListDTO[],
+  today = pacificTodayISO(),
+): AttendanceEventOption[] {
+  const eventLists = lists.filter((l) => l.kind === "event");
+  const upcomingSlugs = new Set(
+    eventLists.filter((l) => !isPastEvent(l, today)).map((l) => l.slug),
+  );
+  const pastLists = eventLists
+    .filter((l) => isPastEvent(l, today))
+    .sort((a, b) => compareEventsByDate(a, b, "desc"));
+
+  const bySlug = new Map(gameEvents.map((g) => [g.slug, g]));
+  const options: AttendanceEventOption[] = [];
+
+  for (const g of [...gameEvents].sort(
+    (a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name),
+  )) {
+    if (upcomingSlugs.has(g.slug)) continue;
+    const list = pastLists.find((l) => l.slug === g.slug);
+    options.push({
+      id: g.id,
+      guestListId: list?.id ?? null,
+      name: g.name,
+      slug: g.slug,
+      sortOrder: g.sortOrder,
+    });
+  }
+
+  for (const list of pastLists) {
+    if (bySlug.has(list.slug)) continue;
+    options.push({
+      id: null,
+      guestListId: list.id,
+      name: list.name,
+      slug: list.slug,
+      sortOrder: list.sortOrder,
+    });
+  }
+
+  return options;
 }

@@ -6,9 +6,15 @@ import {
   CATEGORIES,
   type CategoryKey,
 } from "@/lib/categories";
-import type { PersonDTO } from "@/lib/people";
-import { attendanceLabel } from "@/lib/people";
-import { createPerson, deletePerson, setPersonArchived, updatePerson } from "@/app/actions/people";
+import type { AttendanceEventOption, PersonDTO } from "@/lib/people";
+import { ATTENDANCE_STATUSES } from "@/lib/people";
+import {
+  createPerson,
+  deletePerson,
+  setPersonArchived,
+  setPersonAttendances,
+  updatePerson,
+} from "@/app/actions/people";
 
 type Props = {
   person?: PersonDTO | null;
@@ -16,6 +22,10 @@ type Props = {
   listId: string | null;
   open: boolean;
   onClose: () => void;
+  /** Only true on Address Book — hide delete on events / shortcuts */
+  allowDelete?: boolean;
+  /** Past + historical events available for attendance editing */
+  attendanceEvents?: AttendanceEventOption[];
 };
 
 type FormState = {
@@ -49,8 +59,20 @@ function fromPerson(person?: PersonDTO | null): FormState {
   };
 }
 
-export function PersonEditor({ person, listId, open, onClose }: Props) {
+function attendanceKey(event: AttendanceEventOption) {
+  return event.id ?? `list:${event.guestListId ?? event.slug}`;
+}
+
+export function PersonEditor({
+  person,
+  listId,
+  open,
+  onClose,
+  allowDelete = false,
+  attendanceEvents = [],
+}: Props) {
   const [form, setForm] = useState<FormState>(() => fromPerson(person));
+  const [attendance, setAttendance] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -59,15 +81,46 @@ export function PersonEditor({ person, listId, open, onClose }: Props) {
   useEffect(() => {
     if (open) {
       setForm(fromPerson(person));
+      const next: Record<string, string> = {};
+      for (const event of attendanceEvents) {
+        const key = attendanceKey(event);
+        const existing = person?.attendances?.find(
+          (a) =>
+            (event.id && a.eventId === event.id) ||
+            a.eventName === event.name,
+        );
+        next[key] = existing?.status ?? "";
+      }
+      // Keep orphan attendance rows (event removed from options) visible
+      for (const a of person?.attendances ?? []) {
+        if (
+          !attendanceEvents.some(
+            (e) => e.id === a.eventId || e.name === a.eventName,
+          )
+        ) {
+          next[`orphan:${a.eventId}`] = a.status;
+        }
+      }
+      setAttendance(next);
       setError(null);
       setArchiveConfirmOpen(false);
     }
-  }, [open, person]);
+  }, [open, person, attendanceEvents]);
 
   const title = useMemo(
     () => (isEdit ? "Edit person" : "Add person"),
     [isEdit],
   );
+
+  const orphanEvents = useMemo(() => {
+    if (!person?.attendances?.length) return [];
+    return person.attendances.filter(
+      (a) =>
+        !attendanceEvents.some(
+          (e) => e.id === a.eventId || e.name === a.eventName,
+        ),
+    );
+  }, [person, attendanceEvents]);
 
   if (!open) return null;
 
@@ -91,10 +144,31 @@ export function PersonEditor({ person, listId, open, onClose }: Props) {
           notes: form.notes || null,
           whoIsThis: form.whoIsThis || null,
         };
+        let personId = person?.id;
         if (isEdit && person) {
           await updatePerson(person.id, payload);
         } else {
-          await createPerson(listId, payload);
+          const created = await createPerson(listId, payload);
+          personId = created.id;
+        }
+
+        if (personId && (isEdit || attendanceEvents.length)) {
+          const rows = [
+            ...attendanceEvents.map((event) => ({
+              eventId: event.id,
+              guestListId: event.guestListId ?? null,
+              slug: event.slug,
+              name: event.name,
+              status: attendance[attendanceKey(event)] ?? "",
+            })),
+            ...orphanEvents.map((a) => ({
+              eventId: a.eventId,
+              status: attendance[`orphan:${a.eventId}`] ?? a.status,
+            })),
+          ];
+          if (rows.length) {
+            await setPersonAttendances(personId, rows);
+          }
         }
         onClose();
       } catch (e) {
@@ -140,6 +214,9 @@ export function PersonEditor({ person, listId, open, onClose }: Props) {
       }
     });
   }
+
+  const showAttendance =
+    isEdit && (attendanceEvents.length > 0 || orphanEvents.length > 0);
 
   return (
     <div className="editor-backdrop" role="presentation" onClick={onClose}>
@@ -246,18 +323,76 @@ export function PersonEditor({ person, listId, open, onClose }: Props) {
           </div>
         ) : null}
 
-        {person?.attendances?.length ? (
+        {showAttendance ? (
           <div className="meta-block">
             <p className="meta-label">Attendance</p>
+            <p className="meta-hint">
+              Update records for past games. Clear a status to remove the
+              record.
+            </p>
             <ul className="attendance-list">
-              {person.attendances.map((a) => (
-                <li key={a.eventId} className={`attendance-row status-${a.status}`}>
-                  <span className="attendance-event">{a.eventName}</span>
-                  <span className="attendance-status">
-                    {attendanceLabel(a.status)}
-                  </span>
-                </li>
-              ))}
+              {attendanceEvents.map((event) => {
+                const key = attendanceKey(event);
+                const status = attendance[key] ?? "";
+                return (
+                  <li
+                    key={key}
+                    className={`attendance-row editable status-${status || "empty"}`}
+                  >
+                    <span className="attendance-event">{event.name}</span>
+                    <select
+                      className="attendance-select"
+                      value={status}
+                      onChange={(e) =>
+                        setAttendance((prev) => ({
+                          ...prev,
+                          [key]: e.target.value,
+                        }))
+                      }
+                      disabled={pending}
+                      aria-label={`Attendance for ${event.name}`}
+                    >
+                      <option value="">—</option>
+                      {ATTENDANCE_STATUSES.map((s) => (
+                        <option key={s.value} value={s.value}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                  </li>
+                );
+              })}
+              {orphanEvents.map((a) => {
+                const key = `orphan:${a.eventId}`;
+                const status = attendance[key] ?? a.status;
+                return (
+                  <li
+                    key={key}
+                    className={`attendance-row editable status-${status || "empty"}`}
+                  >
+                    <span className="attendance-event">{a.eventName}</span>
+                    <select
+                      className="attendance-select"
+                      value={status}
+                      onChange={(e) =>
+                        setAttendance((prev) => ({
+                          ...prev,
+                          [key]: e.target.value,
+                        }))
+                      }
+                      disabled={pending}
+                      aria-label={`Attendance for ${a.eventName}`}
+                    >
+                      <option value="">—</option>
+                      {ATTENDANCE_STATUSES.map((s) => (
+                        <option key={s.value} value={s.value}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         ) : null}
@@ -275,14 +410,16 @@ export function PersonEditor({ person, listId, open, onClose }: Props) {
                 >
                   {person?.archived ? "Unarchive" : "Archive"}
                 </button>
-                <button
-                  type="button"
-                  className="danger-btn"
-                  onClick={remove}
-                  disabled={pending}
-                >
-                  Delete
-                </button>
+                {allowDelete ? (
+                  <button
+                    type="button"
+                    className="danger-btn"
+                    onClick={remove}
+                    disabled={pending}
+                  >
+                    Delete
+                  </button>
+                ) : null}
               </>
             ) : null}
             <button
