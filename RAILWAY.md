@@ -53,14 +53,14 @@ In the service → **Variables**, add:
 
 ## 5. Build & start settings
 
-Under **Settings** → **Build** / **Deploy**:
+This repo includes a **Dockerfile**, so Railway should build with Docker automatically.
 
-- **Build command:** `npm run build`  
-- **Start command:** `npx prisma migrate deploy && npm start`  
-
-The start command creates/updates tables on boot, then starts the site.
+- Clear any **custom start command** you added earlier (leave blank) — the Dockerfile already runs migrations and starts the app.
+- **Build command** can also be blank when using the Dockerfile.
 
 Generate a public URL: **Settings** → **Networking** → **Generate domain**.
+
+If the site shows a server error after login, open **Deployments → latest → View logs** and check for database/SQLite errors.
 
 ---
 
