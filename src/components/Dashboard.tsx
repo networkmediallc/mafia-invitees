@@ -1088,6 +1088,13 @@ export function Dashboard({ people, lists: initialLists, userName }: Props) {
         </div>
       ) : null}
 
+      {activeList &&
+      (activeList.kind === "shortcut" || activeList.kind === "archived") ? (
+        <header className="list-heading">
+          <h2>{activeList.name}</h2>
+        </header>
+      ) : null}
+
       <section className="toolbar">
         <label className="select-all">
           <input
