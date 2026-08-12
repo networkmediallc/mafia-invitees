@@ -921,10 +921,16 @@ export function Dashboard({
     });
   }
 
-  function runBulkRemoveFromEvent() {
-    if (!activeList || activeList.kind !== "event") return;
+  function runBulkRemoveFromList() {
+    if (
+      !activeList ||
+      (activeList.kind !== "event" && activeList.kind !== "shortcut")
+    ) {
+      return;
+    }
     const ids = [...selectedIds];
     if (!ids.length) return;
+    const kindLabel = activeList.kind === "event" ? "event" : "shortcut";
     if (
       !confirm(
         `Remove ${ids.length} ${ids.length === 1 ? "person" : "people"} from ${activeList.name}?`,
@@ -955,7 +961,7 @@ export function Dashboard({
         );
         window.setTimeout(() => setMessage(null), 2000);
       } catch {
-        setMessage("Could not remove from event.");
+        setMessage(`Could not remove from ${kindLabel}.`);
       }
     });
   }
@@ -1187,8 +1193,11 @@ export function Dashboard({
         onArchive={() => runBulkArchive(true)}
         onUnarchive={() => runBulkArchive(false)}
         onDelete={runBulkDelete}
-        onRemoveFromEvent={runBulkRemoveFromEvent}
-        showRemoveFromEvent={isEventTab}
+        onRemoveFromList={runBulkRemoveFromList}
+        showRemoveFromList={isEventTab || isShortcutTab}
+        removeFromListLabel={
+          isShortcutTab ? "Remove from shortcut" : "Remove from event"
+        }
         showUnarchive={isArchivedTab}
         showDelete={isAddressBook}
       />

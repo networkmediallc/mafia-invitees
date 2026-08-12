@@ -21,8 +21,9 @@ export function BulkBar({
   onArchive,
   onUnarchive,
   onDelete,
-  onRemoveFromEvent,
-  showRemoveFromEvent,
+  onRemoveFromList,
+  showRemoveFromList,
+  removeFromListLabel,
   showUnarchive,
   showDelete,
 }: {
@@ -35,8 +36,9 @@ export function BulkBar({
   onArchive: () => void;
   onUnarchive: () => void;
   onDelete: () => void;
-  onRemoveFromEvent: () => void;
-  showRemoveFromEvent: boolean;
+  onRemoveFromList: () => void;
+  showRemoveFromList: boolean;
+  removeFromListLabel: string;
   showUnarchive: boolean;
   showDelete: boolean;
 }) {
@@ -56,9 +58,9 @@ export function BulkBar({
       <button type="button" className="ghost-btn" onClick={onInvite}>
         Invite
       </button>
-      {showRemoveFromEvent ? (
-        <button type="button" className="ghost-btn" onClick={onRemoveFromEvent}>
-          Remove from event
+      {showRemoveFromList ? (
+        <button type="button" className="ghost-btn" onClick={onRemoveFromList}>
+          {removeFromListLabel}
         </button>
       ) : null}
       {showUnarchive ? (
