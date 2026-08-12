@@ -1160,6 +1160,10 @@ export function Dashboard({
         onClear={() => setSelectedIds(new Set())}
         onEditTags={() => setBulkTagsOpen(true)}
         onAddToEvent={() => setBulkEventOpen(true)}
+        onInvite={() => {
+          setInvitePersonIds([...selectedIds]);
+          setInviteOpen(true);
+        }}
         onArchive={() => runBulkArchive(true)}
         onUnarchive={() => runBulkArchive(false)}
         onDelete={runBulkDelete}
@@ -1308,7 +1312,7 @@ export function Dashboard({
       <BulkEventModal
         open={inviteOpen}
         personIds={invitePersonIds}
-        events={[...upcomingEvents, ...pastEvents]}
+        events={upcomingEvents}
         preferredEventId={
           isEventTab && !isPastEventTab ? activeList?.id : null
         }

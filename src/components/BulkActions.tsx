@@ -16,6 +16,7 @@ export function BulkBar({
   onClear,
   onEditTags,
   onAddToEvent,
+  onInvite,
   onArchive,
   onUnarchive,
   onDelete,
@@ -28,6 +29,7 @@ export function BulkBar({
   onClear: () => void;
   onEditTags: () => void;
   onAddToEvent: () => void;
+  onInvite: () => void;
   onArchive: () => void;
   onUnarchive: () => void;
   onDelete: () => void;
@@ -45,6 +47,9 @@ export function BulkBar({
       </button>
       <button type="button" className="ghost-btn" onClick={onAddToEvent}>
         Add to event
+      </button>
+      <button type="button" className="ghost-btn" onClick={onInvite}>
+        Invite
       </button>
       {showRemoveFromEvent ? (
         <button type="button" className="ghost-btn" onClick={onRemoveFromEvent}>
