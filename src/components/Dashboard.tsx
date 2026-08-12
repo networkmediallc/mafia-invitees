@@ -1145,6 +1145,12 @@ export function Dashboard({
         </div>
       ) : null}
 
+      {isAddressBook ? (
+        <header className="list-heading">
+          <h2>Mafia Address Book</h2>
+        </header>
+      ) : null}
+
       {activeList &&
       (activeList.kind === "shortcut" || activeList.kind === "archived") ? (
         <header className="list-heading">
