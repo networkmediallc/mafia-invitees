@@ -418,6 +418,7 @@ export function Dashboard({ people, lists: initialLists, userName }: Props) {
   const [invitingId, setInvitingId] = useState<string | null>(null);
   const [uninvitePerson, setUninvitePerson] = useState<PersonDTO | null>(null);
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
+  const [shortcutSort, setShortcutSort] = useState<"rank" | "name">("rank");
   const [, startTransition] = useTransition();
 
   useEffect(() => {
@@ -426,6 +427,10 @@ export function Dashboard({ people, lists: initialLists, userName }: Props) {
 
   useEffect(() => {
     setSelectedIds(new Set());
+  }, [tabId]);
+
+  useEffect(() => {
+    setShortcutSort("rank");
   }, [tabId]);
 
   useEffect(() => {
@@ -445,7 +450,10 @@ export function Dashboard({ people, lists: initialLists, userName }: Props) {
     : (lists.find((l) => l.id === tabId) ?? lists[0] ?? null);
   const isArchivedTab = activeList?.kind === "archived";
   const isEventTab = activeList?.kind === "event";
+  const isShortcutTab = activeList?.kind === "shortcut";
   const isRankedTab = activeList ? isRankedKind(activeList.kind) : false;
+  const sortShortcutsByName = isShortcutTab && shortcutSort === "name";
+  const sortByRank = isRankedTab && !sortShortcutsByName;
 
   const shortcutLists = useMemo(
     () =>
@@ -510,7 +518,7 @@ export function Dashboard({ people, lists: initialLists, userName }: Props) {
       });
 
       list = [...list].sort((a, b) => {
-        if (isRankedTab) {
+        if (sortByRank) {
           const ra = membershipForList(a, activeList.id)?.rank ?? 9999;
           const rb = membershipForList(b, activeList.id)?.rank ?? 9999;
           return ra - rb;
@@ -554,14 +562,14 @@ export function Dashboard({ people, lists: initialLists, userName }: Props) {
     activeList,
     isAddressBook,
     isArchivedTab,
-    isRankedTab,
+    sortByRank,
     categories,
     categoryMatch,
     query,
   ]);
 
   const canReorder = Boolean(
-    isRankedTab && !query && categories.size === 0 && activeList,
+    sortByRank && !query && categories.size === 0 && activeList,
   );
   const showRank = isRankedTab;
   const selectedCount = selectedIds.size;
@@ -1092,6 +1100,22 @@ export function Dashboard({ people, lists: initialLists, userName }: Props) {
       (activeList.kind === "shortcut" || activeList.kind === "archived") ? (
         <header className="list-heading">
           <h2>{activeList.name}</h2>
+          {isShortcutTab ? (
+            <label className="sort-select">
+              Display
+              <select
+                className="filter"
+                value={shortcutSort}
+                onChange={(e) =>
+                  setShortcutSort(e.target.value === "name" ? "name" : "rank")
+                }
+                aria-label="Sort shortcut list"
+              >
+                <option value="rank">By ranking</option>
+                <option value="name">Alphabetically</option>
+              </select>
+            </label>
+          ) : null}
         </header>
       ) : null}
 
@@ -1147,10 +1171,15 @@ export function Dashboard({ people, lists: initialLists, userName }: Props) {
           game. Drag to rank when filters are cleared.
         </p>
       ) : null}
-      {isRankedTab && !isEventTab ? (
+      {isRankedTab && !isEventTab && !sortShortcutsByName ? (
         <p className="hint">
           Drag rows to change ranking — order saves automatically. Clear search
           and category filters to reorder.
+        </p>
+      ) : null}
+      {isShortcutTab && sortShortcutsByName ? (
+        <p className="hint">
+          Showing A–Z. Switch to “By ranking” to drag and reorder.
         </p>
       ) : null}
       {isArchivedTab ? (

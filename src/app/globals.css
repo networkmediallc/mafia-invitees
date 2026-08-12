@@ -639,6 +639,11 @@ textarea {
 }
 
 .list-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem 1rem;
   margin: 0 0 0.75rem;
 }
 
@@ -649,6 +654,24 @@ textarea {
   font-weight: 700;
   letter-spacing: 0.02em;
   color: var(--ink);
+}
+
+.sort-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.sort-select .filter {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+  min-width: 9.5rem;
 }
 
 .toast {
