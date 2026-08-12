@@ -461,8 +461,8 @@ export function Dashboard({
   const isEventTab = activeList?.kind === "event";
   const isShortcutTab = activeList?.kind === "shortcut";
   const isRankedTab = activeList ? isRankedKind(activeList.kind) : false;
-  const sortShortcutsByName = isShortcutTab && shortcutSort === "name";
-  const sortByRank = isRankedTab && !sortShortcutsByName;
+  const sortListByName = isRankedTab && shortcutSort === "name";
+  const sortByRank = isRankedTab && !sortListByName;
 
   const shortcutLists = useMemo(
     () =>
@@ -1087,6 +1087,20 @@ export function Dashboard({
             </p>
           </div>
           <div className="event-meta-actions">
+            <label className="sort-select">
+              Display
+              <select
+                className="filter"
+                value={shortcutSort}
+                onChange={(e) =>
+                  setShortcutSort(e.target.value === "name" ? "name" : "rank")
+                }
+                aria-label="Sort event list"
+              >
+                <option value="rank">By ranking</option>
+                <option value="name">Alphabetically</option>
+              </select>
+            </label>
             <button
               type="button"
               className="ghost-btn"
@@ -1182,16 +1196,16 @@ export function Dashboard({
       {isEventTab ? (
         <p className="hint">
           Event invite list — people added here are the ones to invite for this
-          game. Drag to rank when filters are cleared.
+          game.
         </p>
       ) : null}
-      {isRankedTab && !isEventTab && !sortShortcutsByName ? (
+      {isRankedTab && !sortListByName ? (
         <p className="hint">
           Drag rows to change ranking — order saves automatically. Clear search
           and category filters to reorder.
         </p>
       ) : null}
-      {isShortcutTab && sortShortcutsByName ? (
+      {isRankedTab && sortListByName ? (
         <p className="hint">
           Showing A–Z. Switch to “By ranking” to drag and reorder.
         </p>
