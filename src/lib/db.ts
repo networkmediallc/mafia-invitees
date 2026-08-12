@@ -54,4 +54,11 @@ function getClient() {
   return client;
 }
 
-export const prisma = getClient();
+/** Lazy proxy so importing this module during `next build` does not open the DB. */
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, prop, _receiver) {
+    const client = getClient();
+    const value = Reflect.get(client, prop, client);
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+});

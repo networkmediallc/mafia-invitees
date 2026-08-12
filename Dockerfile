@@ -7,12 +7,19 @@ RUN apt-get update \
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-RUN npm ci
+# Include devDependencies (typescript, etc.) so `next build` can run
+RUN npm ci --include=dev
 
 COPY . .
 
-ENV NEXT_TELEMETRY_DISABLED=1
-RUN npx prisma generate && npm run build
+# Dummy values only for compile/build — Railway runtime vars override these
+ENV NEXT_TELEMETRY_DISABLED=1 \
+    DATABASE_URL="file:/tmp/build.db" \
+    SESSION_SECRET="build-only-secret" \
+    APP_PASSWORD="build-only-password"
+
+RUN npx prisma generate && npm run build \
+  && npm prune --omit=dev
 
 ENV NODE_ENV=production
 EXPOSE 3000
