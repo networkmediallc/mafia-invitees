@@ -7,12 +7,11 @@ RUN apt-get update \
 WORKDIR /app
 
 COPY package.json package-lock.json ./
-# Include devDependencies (typescript, etc.) so `next build` can run
-RUN npm ci --include=dev
+# Skip postinstall (prisma generate) until the schema is copied in
+RUN npm ci --include=dev --ignore-scripts
 
 COPY . .
 
-# Dummy values only for compile/build — Railway runtime vars override these
 ENV NEXT_TELEMETRY_DISABLED=1 \
     DATABASE_URL="file:/tmp/build.db" \
     SESSION_SECRET="build-only-secret" \
