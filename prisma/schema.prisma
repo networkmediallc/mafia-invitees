@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Person {
+  id        String   @id @default(cuid())
+  firstName String
+  lastName  String   @default("")
+  email     String?
+  phone     String?
+  title     String?
+  /// Plus-ones allowed (sheet col C): "1", "2", free text, or empty
+  plusOnes  String?
+  notes     String?
+  whoIsThis String?
+  /// Raw Address Book Group Tag string (semicolon-separated)
+  groupTags String?
+  /// Yes / No / empty — summary from attendance history
+  attended  String?
+  previousPlayer Boolean @default(false)
+  /// Invite sent marker, often a date like "8/5"
+  sent      String?
+
+  journalist    Boolean @default(false)
+  outOfTown     Boolean @default(false)
+  fourSeasons   Boolean @default(false)
+  magician      Boolean @default(false)
+  nmCreatorInLA Boolean @default(false)
+  game          Boolean @default(false)
+  staffFamily   Boolean @default(false)
+  mi            Boolean @default(false)
+  industry      Boolean @default(false)
+  rando         Boolean @default(false)
+  formerPlayer  Boolean @default(false)
+
+  mafia             Boolean @default(false)
+  mafiaCrew         Boolean @default(false)
+  laMafia           Boolean @default(false)
+  losAngeles        Boolean @default(false)
+  vegasMafia        Boolean @default(false)
+  networkMedia      Boolean @default(false)
+  personal          Boolean @default(false)
+  laActor           Boolean @default(false)
+  businessContact   Boolean @default(false)
+  magic             Boolean @default(false)
+  modifiedByRickLax Boolean @default(false)
+
+  /// Legacy list flags — kept for seed/import; memberships are source of truth
+  onQuickList Boolean @default(false)
+  quickRank   Int?
+  onVegas     Boolean @default(false)
+  vegasRank   Int?
+  onFormer    Boolean @default(false)
+  formerRank  Int?
+
+  /// Yes / No / Pending / empty
+  event1Rsvp String?
+  event2Rsvp String?
+  event3Rsvp String?
+
+  /// none | selected | invited — "Invite to Upcoming Game" button
+  upcomingInviteStatus String  @default("none")
+  upcomingInvitedOn    String?
+  /// GuestList id the pending/invited status is tied to
+  upcomingInviteEventId String?
+
+  archived   Boolean @default(false)
+  archivedAt String?
+
+  lastEditedBy String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships ListMembership[]
+  attendances EventAttendance[]
+
+  @@index([onQuickList, quickRank])
+  @@index([onVegas, vegasRank])
+  @@index([onFormer, formerRank])
+  @@index([archived])
+  @@index([email])
+}
+
+model GuestList {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  /// shortcut | event | archived
+  kind      String   @default("event")
+  /// Event details (kind === "event"); ISO date YYYY-MM-DD
+  eventDate String?
+  venue     String?
+  city      String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships ListMembership[]
+}
+
+model ListMembership {
+  id       String @id @default(cuid())
+  personId String
+  listId   String
+  rank     Int?
+
+  person Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  list   GuestList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, listId])
+  @@index([listId, rank])
+}
+
+model GameEvent {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  attendances EventAttendance[]
+}
+
+model EventAttendance {
+  id       String @id @default(cuid())
+  personId String
+  eventId  String
+  /// attended | did_not_attend | not_on_mailing_list
+  status   String
+
+  person Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  event  GameEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, eventId])
+  @@index([eventId, status])
+  @@index([personId])
+}
+
+model AppMeta {
+  key   String @id
+  value String
+}
