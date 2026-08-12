@@ -462,6 +462,32 @@ export async function removePeopleFromList(personIds: string[], listId: string) 
     where: { listId, personId: { in: uniqueIds } },
   });
 
+  if (list.kind === "event") {
+    const invited = await prisma.person.findMany({
+      where: {
+        id: { in: uniqueIds },
+        upcomingInviteEventId: listId,
+      },
+    });
+    for (const person of invited) {
+      await prisma.person.update({
+        where: { id: person.id },
+        data: {
+          upcomingInviteStatus: "none",
+          upcomingInvitedOn: null,
+          upcomingInviteEventId: null,
+          sent:
+            person.sent &&
+            person.upcomingInvitedOn &&
+            person.sent === person.upcomingInvitedOn
+              ? null
+              : person.sent,
+          lastEditedBy: session.name,
+        },
+      });
+    }
+  }
+
   if (list.slug === "los-angeles") {
     await prisma.person.updateMany({
       where: { id: { in: uniqueIds } },

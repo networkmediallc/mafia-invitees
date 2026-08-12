@@ -940,18 +940,33 @@ export function Dashboard({
     }
     const listId = activeList.id;
     const listName = activeList.name;
+    const isEvent = activeList.kind === "event";
     startTransition(async () => {
       try {
         const result = await removePeopleFromList(ids, listId);
         setItems((prev) =>
-          prev.map((p) =>
-            ids.includes(p.id)
-              ? {
-                  ...p,
-                  memberships: p.memberships.filter((m) => m.listId !== listId),
-                }
-              : p,
-          ),
+          prev.map((p) => {
+            if (!ids.includes(p.id)) return p;
+            const next = {
+              ...p,
+              memberships: p.memberships.filter((m) => m.listId !== listId),
+            };
+            if (isEvent && p.upcomingInviteEventId === listId) {
+              return {
+                ...next,
+                upcomingInviteStatus: "none",
+                upcomingInvitedOn: null,
+                upcomingInviteEventId: null,
+                sent:
+                  p.sent &&
+                  p.upcomingInvitedOn &&
+                  p.sent === p.upcomingInvitedOn
+                    ? null
+                    : p.sent,
+              };
+            }
+            return next;
+          }),
         );
         setSelectedIds(new Set());
         setMessage(
