@@ -39,7 +39,7 @@ import {
   resetUpcomingInvite,
   saveListOrder,
 } from "@/app/actions/people";
-import { CATEGORIES, type CategoryKey } from "@/lib/categories";
+import type { CategoryDTO } from "@/lib/categories";
 import {
   compareEventsByDate,
   eventMetaLine,
@@ -51,6 +51,7 @@ import {
   displayName,
   membershipForList,
   personCategories,
+  personHasCategory,
   type AttendanceEventOption,
   type PersonDTO,
 } from "@/lib/people";
@@ -69,11 +70,13 @@ type Props = {
   people: PersonDTO[];
   lists: GuestListDTO[];
   attendanceEvents: AttendanceEventOption[];
+  categories: CategoryDTO[];
   userName: string;
 };
 
 function PersonRow({
   person,
+  categoryCatalog,
   rank,
   showRank,
   sortable,
@@ -86,6 +89,7 @@ function PersonRow({
   dimmed,
 }: {
   person: PersonDTO;
+  categoryCatalog: CategoryDTO[];
   rank: number;
   showRank: boolean;
   sortable: boolean;
@@ -105,7 +109,7 @@ function PersonRow({
     transition,
   };
 
-  const cats = personCategories(person);
+  const cats = personCategories(person, categoryCatalog);
   const inviteStatus = person.upcomingInviteStatus || "none";
   const inviteLabel =
     inviteStatus === "invited"
@@ -266,18 +270,22 @@ function AddPersonMenu({
 function AddressBookPicker({
   open,
   people,
+  categoryCatalog,
   listId,
   onClose,
   onAdded,
+  onCategoryCreated,
 }: {
   open: boolean;
   people: PersonDTO[];
+  categoryCatalog: CategoryDTO[];
   listId: string;
   onClose: () => void;
   onAdded: (person: PersonDTO) => void;
+  onCategoryCreated: (category: CategoryDTO) => void;
 }) {
   const [query, setQuery] = useState("");
-  const [categories, setCategories] = useState<Set<CategoryKey>>(new Set());
+  const [categories, setCategories] = useState<Set<string>>(new Set());
   const [categoryMatch, setCategoryMatch] = useState<"any" | "all">("any");
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -299,8 +307,8 @@ function AddressBookPicker({
       const keys = [...categories];
       list = list.filter((p) =>
         categoryMatch === "all"
-          ? keys.every((key) => p[key])
-          : keys.some((key) => p[key]),
+          ? keys.every((key) => personHasCategory(p, key))
+          : keys.some((key) => personHasCategory(p, key)),
       );
     }
     const q = query.trim().toLowerCase();
@@ -311,7 +319,7 @@ function AddressBookPicker({
           p.lastName,
           p.email,
           p.phone,
-          ...personCategories(p).map((c) => c.label),
+          ...personCategories(p, categoryCatalog).map((c) => c.label),
         ]
           .filter(Boolean)
           .join(" ")
@@ -322,7 +330,7 @@ function AddressBookPicker({
     return [...list].sort((a, b) =>
       displayName(a).localeCompare(displayName(b)),
     );
-  }, [people, listId, categories, categoryMatch, query]);
+  }, [people, listId, categories, categoryMatch, query, categoryCatalog]);
 
   if (!open) return null;
 
@@ -368,10 +376,12 @@ function AddressBookPicker({
             autoFocus
           />
           <CategoryFilter
+            categories={categoryCatalog}
             selected={categories}
             matchMode={categoryMatch}
             onChange={setCategories}
             onMatchModeChange={setCategoryMatch}
+            onCategoryCreated={onCategoryCreated}
           />
         </div>
         {error ? <p className="form-error">{error}</p> : null}
@@ -403,12 +413,14 @@ export function Dashboard({
   people,
   lists: initialLists,
   attendanceEvents,
+  categories: initialCategories,
   userName,
 }: Props) {
   const [lists, setLists] = useState(initialLists);
+  const [categoryCatalog, setCategoryCatalog] = useState(initialCategories);
   const [tabId, setTabId] = useState(() => defaultTabId(initialLists));
   const [query, setQuery] = useState("");
-  const [categories, setCategories] = useState<Set<CategoryKey>>(new Set());
+  const [categories, setCategories] = useState<Set<string>>(new Set());
   const [categoryMatch, setCategoryMatch] = useState<"any" | "all">("any");
   const [items, setItems] = useState(people);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -434,6 +446,19 @@ export function Dashboard({
   useEffect(() => {
     setItems(people);
   }, [people]);
+
+  useEffect(() => {
+    setCategoryCatalog(initialCategories);
+  }, [initialCategories]);
+
+  function handleCategoryCreated(category: CategoryDTO) {
+    setCategoryCatalog((prev) => {
+      if (prev.some((c) => c.key === category.key)) return prev;
+      return [...prev, category].sort(
+        (a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label),
+      );
+    });
+  }
 
   useEffect(() => {
     setSelectedIds(new Set());
@@ -545,8 +570,8 @@ export function Dashboard({
       const keys = [...categories];
       list = list.filter((p) =>
         categoryMatch === "all"
-          ? keys.every((key) => p[key])
-          : keys.some((key) => p[key]),
+          ? keys.every((key) => personHasCategory(p, key))
+          : keys.some((key) => personHasCategory(p, key)),
       );
     }
 
@@ -561,7 +586,7 @@ export function Dashboard({
           p.title,
           p.notes,
           p.whoIsThis,
-          ...personCategories(p).map((c) => c.label),
+          ...personCategories(p, categoryCatalog).map((c) => c.label),
         ]
           .filter(Boolean)
           .join(" ")
@@ -580,6 +605,7 @@ export function Dashboard({
     categories,
     categoryMatch,
     query,
+    categoryCatalog,
   ]);
 
   const canReorder = Boolean(
@@ -1191,10 +1217,12 @@ export function Dashboard({
           onChange={(e) => setQuery(e.target.value)}
         />
         <CategoryFilter
+          categories={categoryCatalog}
           selected={categories}
           matchMode={categoryMatch}
           onChange={setCategories}
           onMatchModeChange={setCategoryMatch}
+          onCategoryCreated={handleCategoryCreated}
         />
         <button type="button" className="primary-btn" onClick={openCreate}>
           Add person
@@ -1269,6 +1297,7 @@ export function Dashboard({
               <PersonRow
                 key={person.id}
                 person={person}
+                categoryCatalog={categoryCatalog}
                 showRank={showRank}
                 sortable={canReorder}
                 selected={selectedIds.has(person.id)}
@@ -1299,6 +1328,8 @@ export function Dashboard({
         listId={isAddressBook ? null : (activeList?.id ?? null)}
         allowDelete={isAddressBook}
         attendanceEvents={attendanceEvents}
+        categories={categoryCatalog}
+        onCategoryCreated={handleCategoryCreated}
         onClose={() => setEditorOpen(false)}
       />
 
@@ -1320,24 +1351,27 @@ export function Dashboard({
         <AddressBookPicker
           open={pickerOpen}
           people={items}
+          categoryCatalog={categoryCatalog}
           listId={activeList.id}
           onClose={() => setPickerOpen(false)}
           onAdded={handlePickedFromBook}
+          onCategoryCreated={handleCategoryCreated}
         />
       ) : null}
 
       <BulkTagsModal
         open={bulkTagsOpen}
         personIds={[...selectedIds]}
+        categories={categoryCatalog}
         onClose={() => setBulkTagsOpen(false)}
         onSaved={(add, remove) => {
           setItems((prev) =>
             prev.map((p) => {
               if (!selectedIds.has(p.id)) return p;
-              const next = { ...p };
-              for (const key of add) next[key] = true;
-              for (const key of remove) next[key] = false;
-              return next;
+              const set = new Set(p.categoryKeys);
+              for (const key of add) set.add(key);
+              for (const key of remove) set.delete(key);
+              return { ...p, categoryKeys: [...set] };
             }),
           );
           setMessage(

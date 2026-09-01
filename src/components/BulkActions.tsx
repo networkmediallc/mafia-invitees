@@ -8,7 +8,7 @@ import {
   invitePeopleToEvent,
   updateEvent,
 } from "@/app/actions/people";
-import { CATEGORIES, type CategoryKey } from "@/lib/categories";
+import type { CategoryDTO } from "@/lib/categories";
 import { eventMetaLine, isPastEvent, type GuestListDTO } from "@/lib/list-kinds";
 
 export function BulkBar({
@@ -87,16 +87,18 @@ export function BulkBar({
 export function BulkTagsModal({
   open,
   personIds,
+  categories,
   onClose,
   onSaved,
 }: {
   open: boolean;
   personIds: string[];
+  categories: CategoryDTO[];
   onClose: () => void;
-  onSaved: (add: CategoryKey[], remove: CategoryKey[]) => void;
+  onSaved: (add: string[], remove: string[]) => void;
 }) {
-  const [add, setAdd] = useState<Set<CategoryKey>>(new Set());
-  const [remove, setRemove] = useState<Set<CategoryKey>>(new Set());
+  const [add, setAdd] = useState<Set<string>>(new Set());
+  const [remove, setRemove] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -110,10 +112,7 @@ export function BulkTagsModal({
 
   if (!open) return null;
 
-  function toggle(
-    key: CategoryKey,
-    bucket: "add" | "remove",
-  ) {
+  function toggle(key: string, bucket: "add" | "remove") {
     if (bucket === "add") {
       setAdd((prev) => {
         const next = new Set(prev);
@@ -186,7 +185,7 @@ export function BulkTagsModal({
           <div>
             <p className="meta-label">Add</p>
             <div className="category-checks">
-              {CATEGORIES.map((cat) => (
+              {categories.map((cat) => (
                 <label key={`add-${cat.key}`} className="check">
                   <input
                     type="checkbox"
@@ -201,7 +200,7 @@ export function BulkTagsModal({
           <div>
             <p className="meta-label">Remove</p>
             <div className="category-checks">
-              {CATEGORIES.map((cat) => (
+              {categories.map((cat) => (
                 <label key={`rm-${cat.key}`} className="check">
                   <input
                     type="checkbox"

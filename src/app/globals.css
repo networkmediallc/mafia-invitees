@@ -343,6 +343,20 @@ textarea {
   gap: 0.35rem 0.75rem;
 }
 
+.filter-add-category {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin-top: 0.75rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--line);
+}
+
+.filter-add-category .filter {
+  flex: 1;
+  min-width: 0;
+}
+
 .tabs {
   display: flex;
   flex-wrap: wrap;

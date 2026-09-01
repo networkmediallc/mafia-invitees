@@ -3,20 +3,18 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireSession } from "@/lib/auth";
-import { CATEGORIES, type CategoryKey } from "@/lib/categories";
+import { slugifyCategoryKey } from "@/lib/categories";
+import {
+  addCategoriesToPeople,
+  ensureCategories,
+  removeCategoriesFromPeople,
+  setPersonCategoryKeys,
+  toCategoryDTO,
+} from "@/lib/category-store";
 import { prisma } from "@/lib/db";
 import { slugifyListName, toGuestListDTO } from "@/lib/list-kinds";
 import { syncRegionListsFromTags } from "@/lib/lists";
 import { attendanceSummaryFromStatuses } from "@/lib/people";
-
-const categoryKeys = CATEGORIES.map((c) => c.key) as [
-  CategoryKey,
-  ...CategoryKey[],
-];
-
-const categoryShape = Object.fromEntries(
-  categoryKeys.map((key) => [key, z.boolean().optional().default(false)]),
-) as Record<CategoryKey, z.ZodDefault<z.ZodOptional<z.ZodBoolean>>>;
 
 const personInput = z.object({
   firstName: z.string().min(1),
@@ -30,17 +28,11 @@ const personInput = z.object({
   attended: z.string().optional().nullable(),
   previousPlayer: z.boolean().optional().default(false),
   sent: z.string().optional().nullable(),
-  ...categoryShape,
+  categoryKeys: z.array(z.string()).optional().default([]),
   event1Rsvp: z.string().optional().nullable(),
   event2Rsvp: z.string().optional().nullable(),
   event3Rsvp: z.string().optional().nullable(),
 });
-
-function categoryData(data: z.infer<typeof personInput>) {
-  return Object.fromEntries(
-    categoryKeys.map((key) => [key, data[key] ?? false]),
-  ) as Record<CategoryKey, boolean>;
-}
 
 function emptyToNull(value: string | null | undefined) {
   if (value == null) return null;
@@ -211,6 +203,7 @@ export async function createPerson(
 ) {
   const session = await requireSession();
   const data = personInput.parse(raw);
+  await ensureCategories();
 
   if (!listId) {
     const person = await prisma.person.create({
@@ -226,13 +219,13 @@ export async function createPerson(
         attended: emptyToNull(data.attended),
         previousPlayer: data.previousPlayer,
         sent: emptyToNull(data.sent),
-        ...categoryData(data),
         event1Rsvp: emptyToNull(data.event1Rsvp),
         event2Rsvp: emptyToNull(data.event2Rsvp),
         event3Rsvp: emptyToNull(data.event3Rsvp),
         lastEditedBy: session.name,
       },
     });
+    await setPersonCategoryKeys(person.id, data.categoryKeys, session.name);
     await syncRegionListsFromTags([person.id]);
     revalidatePath("/");
     return person;
@@ -258,7 +251,6 @@ export async function createPerson(
       attended: emptyToNull(data.attended),
       previousPlayer: data.previousPlayer,
       sent: emptyToNull(data.sent),
-      ...categoryData(data),
       event1Rsvp: emptyToNull(data.event1Rsvp),
       event2Rsvp: emptyToNull(data.event2Rsvp),
       event3Rsvp: emptyToNull(data.event3Rsvp),
@@ -279,6 +271,7 @@ export async function createPerson(
     },
   });
 
+  await setPersonCategoryKeys(person.id, data.categoryKeys, session.name);
   if (!isArchived) await syncRegionListsFromTags([person.id]);
   revalidatePath("/");
   return person;
@@ -356,33 +349,55 @@ export async function addPeopleToList(personIds: string[], listId: string) {
   return { added };
 }
 
+export async function createCategory(label: string) {
+  await requireSession();
+  await ensureCategories();
+  const trimmed = label.trim();
+  if (!trimmed) throw new Error("Category name is required.");
+
+  const base = slugifyCategoryKey(trimmed);
+  let key = base;
+  let n = 2;
+  while (await prisma.category.findUnique({ where: { key } })) {
+    key = `${base}-${n}`;
+    n += 1;
+  }
+
+  const maxOrder = await prisma.category.aggregate({ _max: { sortOrder: true } });
+  const sortOrder = (maxOrder._max.sortOrder ?? 0) + 1;
+
+  const category = await prisma.category.create({
+    data: {
+      key,
+      label: trimmed,
+      sortOrder,
+    },
+  });
+
+  revalidatePath("/");
+  return toCategoryDTO(category);
+}
+
 export async function bulkUpdateCategories(
   personIds: string[],
-  add: CategoryKey[],
-  remove: CategoryKey[],
+  add: string[],
+  remove: string[],
 ) {
   const session = await requireSession();
   const uniqueIds = [...new Set(personIds.filter(Boolean))];
   if (!uniqueIds.length) return { updated: 0 };
 
-  const addKeys = add.filter((k) => categoryKeys.includes(k));
-  const removeKeys = remove.filter((k) => categoryKeys.includes(k));
+  await ensureCategories();
+  const addKeys = [...new Set(add.filter(Boolean))];
+  const removeKeys = [...new Set(remove.filter(Boolean))];
   if (!addKeys.length && !removeKeys.length) return { updated: 0 };
 
-  const data = {
-    ...Object.fromEntries(addKeys.map((k) => [k, true])),
-    ...Object.fromEntries(removeKeys.map((k) => [k, false])),
-    lastEditedBy: session.name,
-  };
-
-  await prisma.$transaction(
-    uniqueIds.map((id) =>
-      prisma.person.update({
-        where: { id },
-        data,
-      }),
-    ),
-  );
+  if (addKeys.length) {
+    await addCategoriesToPeople(uniqueIds, addKeys, session.name);
+  }
+  if (removeKeys.length) {
+    await removeCategoriesFromPeople(uniqueIds, removeKeys, session.name);
+  }
 
   await syncRegionListsFromTags(uniqueIds);
   revalidatePath("/");
@@ -395,6 +410,7 @@ export async function updatePerson(
 ) {
   const session = await requireSession();
   const data = personInput.partial().parse(raw);
+  await ensureCategories();
 
   const person = await prisma.person.update({
     where: { id },
@@ -422,11 +438,6 @@ export async function updatePerson(
         ? { previousPlayer: data.previousPlayer }
         : {}),
       ...(data.sent !== undefined ? { sent: emptyToNull(data.sent) } : {}),
-      ...Object.fromEntries(
-        categoryKeys
-          .filter((key) => data[key] !== undefined)
-          .map((key) => [key, data[key]]),
-      ),
       ...(data.event1Rsvp !== undefined
         ? { event1Rsvp: emptyToNull(data.event1Rsvp) }
         : {}),
@@ -439,6 +450,10 @@ export async function updatePerson(
       lastEditedBy: session.name,
     },
   });
+
+  if (data.categoryKeys !== undefined) {
+    await setPersonCategoryKeys(id, data.categoryKeys, session.name);
+  }
 
   await syncRegionListsFromTags([person.id]);
   revalidatePath("/");

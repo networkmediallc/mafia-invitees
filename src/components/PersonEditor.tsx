@@ -2,13 +2,11 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import {
-  CATEGORIES,
-  type CategoryKey,
-} from "@/lib/categories";
+import type { CategoryDTO } from "@/lib/categories";
 import type { AttendanceEventOption, PersonDTO } from "@/lib/people";
 import { ATTENDANCE_STATUSES } from "@/lib/people";
 import {
+  createCategory,
   createPerson,
   deletePerson,
   setPersonArchived,
@@ -26,6 +24,8 @@ type Props = {
   allowDelete?: boolean;
   /** Past + historical events available for attendance editing */
   attendanceEvents?: AttendanceEventOption[];
+  categories: CategoryDTO[];
+  onCategoryCreated?: (category: CategoryDTO) => void;
 };
 
 type FormState = {
@@ -38,13 +38,10 @@ type FormState = {
   notes: string;
   whoIsThis: string;
   previousPlayer: boolean;
-} & Record<CategoryKey, boolean>;
+  categoryKeys: string[];
+};
 
 function fromPerson(person?: PersonDTO | null): FormState {
-  const cats = Object.fromEntries(
-    CATEGORIES.map((c) => [c.key, person?.[c.key] ?? false]),
-  ) as Record<CategoryKey, boolean>;
-
   return {
     firstName: person?.firstName ?? "",
     lastName: person?.lastName ?? "",
@@ -55,7 +52,7 @@ function fromPerson(person?: PersonDTO | null): FormState {
     notes: person?.notes ?? "",
     whoIsThis: person?.whoIsThis ?? "",
     previousPlayer: person?.previousPlayer ?? false,
-    ...cats,
+    categoryKeys: person?.categoryKeys ? [...person.categoryKeys] : [],
   };
 }
 
@@ -70,8 +67,11 @@ export function PersonEditor({
   onClose,
   allowDelete = false,
   attendanceEvents = [],
+  categories,
+  onCategoryCreated,
 }: Props) {
   const [form, setForm] = useState<FormState>(() => fromPerson(person));
+  const [newCategoryLabel, setNewCategoryLabel] = useState("");
   const [attendance, setAttendance] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
@@ -81,6 +81,7 @@ export function PersonEditor({
   useEffect(() => {
     if (open) {
       setForm(fromPerson(person));
+      setNewCategoryLabel("");
       const next: Record<string, string> = {};
       for (const event of attendanceEvents) {
         const key = attendanceKey(event);
@@ -143,6 +144,7 @@ export function PersonEditor({
           plusOnes: form.plusOnes || null,
           notes: form.notes || null,
           whoIsThis: form.whoIsThis || null,
+          categoryKeys: form.categoryKeys,
         };
         let personId = person?.id;
         if (isEdit && person) {
@@ -217,6 +219,39 @@ export function PersonEditor({
 
   const showAttendance =
     isEdit && (attendanceEvents.length > 0 || orphanEvents.length > 0);
+
+  function toggleCategory(key: string, checked: boolean) {
+    setForm((prev) => {
+      const set = new Set(prev.categoryKeys);
+      if (checked) set.add(key);
+      else set.delete(key);
+      return { ...prev, categoryKeys: [...set] };
+    });
+  }
+
+  function addNewCategory() {
+    const trimmed = newCategoryLabel.trim();
+    if (!trimmed) {
+      setError("Enter a category name.");
+      return;
+    }
+    startTransition(async () => {
+      try {
+        const created = await createCategory(trimmed);
+        onCategoryCreated?.(created);
+        setForm((prev) => ({
+          ...prev,
+          categoryKeys: prev.categoryKeys.includes(created.key)
+            ? prev.categoryKeys
+            : [...prev.categoryKeys, created.key],
+        }));
+        setNewCategoryLabel("");
+        setError(null);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not create category.");
+      }
+    });
+  }
 
   return (
     <div className="editor-backdrop" role="presentation" onClick={onClose}>
@@ -303,16 +338,39 @@ export function PersonEditor({
         <fieldset className="category-box">
           <legend>Categories</legend>
           <div className="category-checks">
-            {CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <label key={cat.key} className="check">
                 <input
                   type="checkbox"
-                  checked={form[cat.key]}
-                  onChange={(e) => setField(cat.key, e.target.checked)}
+                  checked={form.categoryKeys.includes(cat.key)}
+                  onChange={(e) => toggleCategory(cat.key, e.target.checked)}
                 />
                 <span>{cat.label}</span>
               </label>
             ))}
+          </div>
+          <div className="filter-add-category">
+            <input
+              className="filter"
+              placeholder="New category name"
+              value={newCategoryLabel}
+              onChange={(e) => setNewCategoryLabel(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addNewCategory();
+                }
+              }}
+              disabled={pending}
+            />
+            <button
+              type="button"
+              className="ghost-btn"
+              onClick={addNewCategory}
+              disabled={pending}
+            >
+              Add category
+            </button>
           </div>
         </fieldset>
 

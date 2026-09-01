@@ -1,22 +1,30 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { CATEGORIES, type CategoryKey } from "@/lib/categories";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { createCategory } from "@/app/actions/people";
+import type { CategoryDTO } from "@/lib/categories";
 
 type MatchMode = "any" | "all";
 
 export function CategoryFilter({
+  categories,
   selected,
   matchMode,
   onChange,
   onMatchModeChange,
+  onCategoryCreated,
 }: {
-  selected: Set<CategoryKey>;
+  categories: CategoryDTO[];
+  selected: Set<string>;
   matchMode: MatchMode;
-  onChange: (next: Set<CategoryKey>) => void;
+  onChange: (next: Set<string>) => void;
   onMatchModeChange: (mode: MatchMode) => void;
+  onCategoryCreated: (category: CategoryDTO) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [newLabel, setNewLabel] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -33,14 +41,32 @@ export function CategoryFilter({
     count === 0
       ? "All categories"
       : count === 1
-        ? CATEGORIES.find((c) => selected.has(c.key))?.label ?? "1 category"
+        ? categories.find((c) => selected.has(c.key))?.label ?? "1 category"
         : `${count} categories`;
 
-  function toggle(key: CategoryKey) {
+  function toggle(key: string) {
     const next = new Set(selected);
     if (next.has(key)) next.delete(key);
     else next.add(key);
     onChange(next);
+  }
+
+  function addCategory() {
+    const trimmed = newLabel.trim();
+    if (!trimmed) {
+      setError("Enter a category name.");
+      return;
+    }
+    setError(null);
+    startTransition(async () => {
+      try {
+        const created = await createCategory(trimmed);
+        onCategoryCreated(created);
+        setNewLabel("");
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not create category.");
+      }
+    });
   }
 
   return (
@@ -91,7 +117,7 @@ export function CategoryFilter({
               : "Show people who have every selected tag."}
           </p>
           <div className="filter-checks">
-            {CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <label key={cat.key} className="check">
                 <input
                   type="checkbox"
@@ -102,6 +128,30 @@ export function CategoryFilter({
               </label>
             ))}
           </div>
+          <div className="filter-add-category">
+            <input
+              className="filter"
+              placeholder="New category name"
+              value={newLabel}
+              onChange={(e) => setNewLabel(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addCategory();
+                }
+              }}
+              disabled={pending}
+            />
+            <button
+              type="button"
+              className="ghost-btn"
+              onClick={addCategory}
+              disabled={pending}
+            >
+              {pending ? "Adding…" : "Add"}
+            </button>
+          </div>
+          {error ? <p className="form-error">{error}</p> : null}
         </div>
       ) : null}
     </div>

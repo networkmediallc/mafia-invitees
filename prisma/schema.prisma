@@ -78,12 +78,35 @@ model Person {
 
   memberships ListMembership[]
   attendances EventAttendance[]
+  categories  PersonCategory[]
 
   @@index([onQuickList, quickRank])
   @@index([onVegas, vegasRank])
   @@index([onFormer, formerRank])
   @@index([archived])
   @@index([email])
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  /// Stable slug used in filters / CSS (e.g. mafiaCrew, vip-donors)
+  key       String   @unique
+  label     String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  people PersonCategory[]
+}
+
+model PersonCategory {
+  personId   String
+  categoryId String
+
+  person   Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([personId, categoryId])
+  @@index([categoryId])
 }
 
 model GuestList {

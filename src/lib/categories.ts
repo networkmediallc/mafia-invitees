@@ -1,4 +1,5 @@
-export const CATEGORIES = [
+/** Built-in categories seeded into the Category table on first run. */
+export const BUILTIN_CATEGORIES = [
   { key: "mafiaCrew", label: "Mafia Crew" },
   { key: "laMafia", label: "LA Mafia" },
   { key: "vegasMafia", label: "Vegas Mafia" },
@@ -18,7 +19,46 @@ export const CATEGORIES = [
   { key: "formerPlayer", label: "Archived" },
 ] as const;
 
-export type CategoryKey = (typeof CATEGORIES)[number]["key"];
+export type BuiltinCategoryKey = (typeof BUILTIN_CATEGORIES)[number]["key"];
+
+/** @deprecated Prefer CategoryDTO from the database — kept for import scripts. */
+export const CATEGORIES = BUILTIN_CATEGORIES;
+
+/** @deprecated Prefer string category keys from the database. */
+export type CategoryKey = BuiltinCategoryKey;
+
+export type CategoryDTO = {
+  id: string;
+  key: string;
+  label: string;
+  sortOrder: number;
+};
+
+/** Boolean columns on Person that mirror built-in category keys. */
+export const BUILTIN_CATEGORY_KEYS = BUILTIN_CATEGORIES.map((c) => c.key) as [
+  BuiltinCategoryKey,
+  ...BuiltinCategoryKey[],
+];
+
+const BUILTIN_KEY_SET = new Set<string>(BUILTIN_CATEGORY_KEYS);
+
+export function isBuiltinCategoryKey(key: string): key is BuiltinCategoryKey {
+  return BUILTIN_KEY_SET.has(key);
+}
+
+export function slugifyCategoryKey(label: string) {
+  const base = label
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const slug = base || "category";
+  // Avoid colliding with reserved Person field names that aren't categories
+  if (slug === "id" || slug === "key" || slug === "label") {
+    return `${slug}-tag`;
+  }
+  return slug;
+}
 
 /** Tags dropped from the address book (not shown as categories). */
 const DROPPED_GROUP_TAGS = new Set([
@@ -29,7 +69,7 @@ const DROPPED_GROUP_TAGS = new Set([
 ]);
 
 /** Exact Address Book Group Tag → category key */
-export const GROUP_TAG_TO_CATEGORY: Record<string, CategoryKey> = {
+export const GROUP_TAG_TO_CATEGORY: Record<string, BuiltinCategoryKey> = {
   "LA Mafia": "laMafia",
   "Vegas Mafia": "vegasMafia",
   "Network Media": "networkMedia",

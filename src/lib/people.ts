@@ -3,8 +3,14 @@ import type {
   ListMembership,
   EventAttendance,
   GameEvent,
+  PersonCategory,
+  Category,
 } from "@/generated/prisma/client";
-import { CATEGORIES, type CategoryKey } from "@/lib/categories";
+import {
+  BUILTIN_CATEGORY_KEYS,
+  type BuiltinCategoryKey,
+  type CategoryDTO,
+} from "@/lib/categories";
 
 export type MembershipDTO = {
   listId: string;
@@ -50,20 +56,64 @@ export type PersonDTO = {
   updatedAt: string;
   memberships: MembershipDTO[];
   attendances: AttendanceDTO[];
-} & Record<CategoryKey, boolean>;
+  /** Assigned category keys (built-in + custom). */
+  categoryKeys: string[];
+};
 
 type PersonWithRelations = Person & {
   memberships?: Pick<ListMembership, "listId" | "rank">[];
   attendances?: (Pick<EventAttendance, "eventId" | "status"> & {
     event?: Pick<GameEvent, "name" | "sortOrder">;
   })[];
+  categories?: (Pick<PersonCategory, "categoryId"> & {
+    category?: Pick<Category, "key">;
+  })[];
 };
 
 export function toPersonDTO(person: PersonWithRelations): PersonDTO {
-  const { memberships, attendances, updatedAt, ...rest } = person;
+  const { memberships, attendances, categories, updatedAt, ...rest } = person;
+
+  let categoryKeys =
+    (categories ?? [])
+      .map((c) => c.category?.key)
+      .filter((k): k is string => Boolean(k)) ?? [];
+
+  // Fallback for rows not yet backfilled into PersonCategory
+  if (!categoryKeys.length) {
+    categoryKeys = BUILTIN_CATEGORY_KEYS.filter(
+      (key) => Boolean((rest as Record<string, unknown>)[key]),
+    );
+  }
+
   return {
-    ...rest,
+    id: rest.id,
+    firstName: rest.firstName,
+    lastName: rest.lastName,
+    email: rest.email,
+    phone: rest.phone,
+    title: rest.title,
+    plusOnes: rest.plusOnes,
+    notes: rest.notes,
+    whoIsThis: rest.whoIsThis,
     groupTags: rest.groupTags ?? null,
+    attended: rest.attended,
+    previousPlayer: rest.previousPlayer,
+    sent: rest.sent,
+    onQuickList: rest.onQuickList,
+    quickRank: rest.quickRank,
+    onVegas: rest.onVegas,
+    vegasRank: rest.vegasRank,
+    onFormer: rest.onFormer,
+    formerRank: rest.formerRank,
+    event1Rsvp: rest.event1Rsvp,
+    event2Rsvp: rest.event2Rsvp,
+    event3Rsvp: rest.event3Rsvp,
+    upcomingInviteStatus: rest.upcomingInviteStatus,
+    upcomingInvitedOn: rest.upcomingInvitedOn,
+    upcomingInviteEventId: rest.upcomingInviteEventId,
+    archived: rest.archived,
+    archivedAt: rest.archivedAt,
+    lastEditedBy: rest.lastEditedBy,
     updatedAt: updatedAt.toISOString(),
     memberships: (memberships ?? []).map((m) => ({
       listId: m.listId,
@@ -77,6 +127,7 @@ export function toPersonDTO(person: PersonWithRelations): PersonDTO {
         status: a.status,
       }))
       .sort((a, b) => a.eventSortOrder - b.eventSortOrder),
+    categoryKeys,
   };
 }
 
@@ -112,11 +163,21 @@ export function attendanceSummaryFromStatuses(statuses: string[]) {
   return { attended: null as string | null, previousPlayer: false };
 }
 
-export function personCategories(person: Pick<PersonDTO, CategoryKey>) {
-  return CATEGORIES.filter((c) => person[c.key]).map((c) => ({
-    key: c.key,
-    label: c.label,
-  }));
+export function personCategories(
+  person: Pick<PersonDTO, "categoryKeys">,
+  catalog: CategoryDTO[],
+) {
+  const set = new Set(person.categoryKeys);
+  return catalog
+    .filter((c) => set.has(c.key))
+    .map((c) => ({ key: c.key, label: c.label }));
+}
+
+export function personHasCategory(
+  person: Pick<PersonDTO, "categoryKeys">,
+  key: string,
+) {
+  return person.categoryKeys.includes(key);
 }
 
 export function displayName(person: Pick<PersonDTO, "firstName" | "lastName">) {
@@ -126,3 +187,6 @@ export function displayName(person: Pick<PersonDTO, "firstName" | "lastName">) {
 export function membershipForList(person: PersonDTO, listId: string) {
   return person.memberships.find((m) => m.listId === listId);
 }
+
+/** @deprecated legacy type alias */
+export type CategoryKey = BuiltinCategoryKey;
