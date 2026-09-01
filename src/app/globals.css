@@ -823,6 +823,21 @@ textarea {
   letter-spacing: -0.01em;
 }
 
+.missing-contact-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.95rem;
+  height: 0.95rem;
+  border-radius: 999px;
+  background: rgba(193, 18, 31, 0.18);
+  color: #c1121f;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
 .person-meta,
 .person-notes {
   margin: 0.25rem 0 0;

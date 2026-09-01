@@ -123,6 +123,15 @@ function PersonRow({
       : inviteStatus === "selected"
         ? "invite-btn selected"
         : "invite-btn";
+  const missingEmail = !person.email?.trim();
+  const missingPhone = !person.phone?.trim();
+  const missingContact = missingEmail || missingPhone;
+  const missingLabel = [
+    missingEmail ? "email" : null,
+    missingPhone ? "phone" : null,
+  ]
+    .filter(Boolean)
+    .join(" and ");
 
   return (
     <article
@@ -155,6 +164,15 @@ function PersonRow({
       <button type="button" className="person-main" onClick={() => onEdit(person)}>
         <div className="person-name-row">
           <h3>{displayName(person)}</h3>
+          {missingContact ? (
+            <span
+              className="missing-contact-icon"
+              title={`Missing ${missingLabel}`}
+              aria-label={`Missing ${missingLabel}`}
+            >
+              −
+            </span>
+          ) : null}
           {person.plusOnes ? (
             <span className="chip plus">+{person.plusOnes}</span>
           ) : null}
