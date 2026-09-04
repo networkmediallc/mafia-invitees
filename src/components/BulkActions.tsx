@@ -97,52 +97,37 @@ export function BulkTagsModal({
   onClose: () => void;
   onSaved: (add: string[], remove: string[]) => void;
 }) {
-  const [add, setAdd] = useState<Set<string>>(new Set());
-  const [remove, setRemove] = useState<Set<string>>(new Set());
+  const [actions, setActions] = useState<Record<string, "leave" | "add" | "remove">>(
+    {},
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
     if (open) {
-      setAdd(new Set());
-      setRemove(new Set());
+      setActions({});
       setError(null);
     }
   }, [open]);
 
   if (!open) return null;
 
-  function toggle(key: string, bucket: "add" | "remove") {
-    if (bucket === "add") {
-      setAdd((prev) => {
-        const next = new Set(prev);
-        if (next.has(key)) next.delete(key);
-        else next.add(key);
-        return next;
-      });
-      setRemove((prev) => {
-        const next = new Set(prev);
-        next.delete(key);
-        return next;
-      });
-    } else {
-      setRemove((prev) => {
-        const next = new Set(prev);
-        if (next.has(key)) next.delete(key);
-        else next.add(key);
-        return next;
-      });
-      setAdd((prev) => {
-        const next = new Set(prev);
-        next.delete(key);
-        return next;
-      });
-    }
+  function setAction(key: string, value: "leave" | "add" | "remove") {
+    setActions((prev) => {
+      const next = { ...prev };
+      if (value === "leave") delete next[key];
+      else next[key] = value;
+      return next;
+    });
   }
 
   function save() {
-    const addKeys = [...add];
-    const removeKeys = [...remove];
+    const addKeys = Object.entries(actions)
+      .filter(([, v]) => v === "add")
+      .map(([k]) => k);
+    const removeKeys = Object.entries(actions)
+      .filter(([, v]) => v === "remove")
+      .map(([k]) => k);
     if (!addKeys.length && !removeKeys.length) {
       setError("Pick at least one tag to add or remove.");
       return;
@@ -159,6 +144,9 @@ export function BulkTagsModal({
     });
   }
 
+  const countLabel =
+    personIds.length === 1 ? "1 person" : `${personIds.length} people`;
+
   return (
     <div className="editor-backdrop" role="presentation" onClick={onClose}>
       <div
@@ -171,50 +159,51 @@ export function BulkTagsModal({
         <header className="editor-header">
           <div>
             <p className="eyebrow">Bulk edit</p>
-            <h2>Tags for {personIds.length} people</h2>
+            <h2>Tags for {countLabel}</h2>
           </div>
           <button type="button" className="ghost-btn" onClick={onClose}>
             Close
           </button>
         </header>
         <p className="choice-copy">
-          Add tags to everyone selected, or remove tags from them. Unchecked
-          tags are left unchanged.
+          Choose Leave, Add, or Remove for each tag. Leave keeps the current
+          value unchanged.
         </p>
-        <div className="bulk-tag-grid">
-          <div>
-            <p className="meta-label">Add</p>
-            <div className="category-checks">
-              {categories.map((cat) => (
-                <label key={`add-${cat.key}`} className="check">
-                  <input
-                    type="checkbox"
-                    checked={add.has(cat.key)}
-                    onChange={() => toggle(cat.key, "add")}
-                  />
-                  <span>{cat.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-          <div>
-            <p className="meta-label">Remove</p>
-            <div className="category-checks">
-              {categories.map((cat) => (
-                <label key={`rm-${cat.key}`} className="check">
-                  <input
-                    type="checkbox"
-                    checked={remove.has(cat.key)}
-                    onChange={() => toggle(cat.key, "remove")}
-                  />
-                  <span>{cat.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
+        <div className="bulk-tag-list" role="list">
+          {categories.map((cat) => {
+            const value = actions[cat.key] ?? "leave";
+            return (
+              <div key={cat.key} className="bulk-tag-row" role="listitem">
+                <span className="bulk-tag-name">{cat.label}</span>
+                <div
+                  className="bulk-tag-actions"
+                  role="group"
+                  aria-label={`${cat.label} action`}
+                >
+                  {(
+                    [
+                      ["leave", "Leave"],
+                      ["add", "Add"],
+                      ["remove", "Remove"],
+                    ] as const
+                  ).map(([action, label]) => (
+                    <button
+                      key={action}
+                      type="button"
+                      className={`bulk-tag-action ${value === action ? `active ${action}` : ""}`}
+                      onClick={() => setAction(cat.key, action)}
+                      aria-pressed={value === action}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
         {error ? <p className="form-error">{error}</p> : null}
-        <div className="editor-actions-right" style={{ marginTop: "1rem" }}>
+        <div className="bulk-tag-footer">
           <button
             type="button"
             className="primary-btn"
