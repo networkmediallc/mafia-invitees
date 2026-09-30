@@ -34,6 +34,7 @@ import {
   bulkDeletePeople,
   bulkSetArchived,
   deleteGuestList,
+  invitePeopleToEvent,
   markUpcomingInvited,
   removePeopleFromList,
   resetUpcomingInvite,
@@ -454,8 +455,6 @@ export function Dashboard({
   const [bulkTagsOpen, setBulkTagsOpen] = useState(false);
   const [bulkEventOpen, setBulkEventOpen] = useState(false);
   const [bulkShortcutOpen, setBulkShortcutOpen] = useState(false);
-  const [inviteOpen, setInviteOpen] = useState(false);
-  const [invitePersonIds, setInvitePersonIds] = useState<string[]>([]);
   const [invitingId, setInvitingId] = useState<string | null>(null);
   const [uninvitePerson, setUninvitePerson] = useState<PersonDTO | null>(null);
   const [bulkResetConfirmOpen, setBulkResetConfirmOpen] = useState(false);
@@ -716,6 +715,29 @@ export function Dashboard({
     setEditorOpen(true);
   }
 
+  function inviteToNewestEvent(ids: string[]) {
+    const event = upcomingEvents[0];
+    if (!event) {
+      setMessage("Create an upcoming event first, then try again.");
+      window.setTimeout(() => setMessage(null), 2500);
+      return;
+    }
+    if (!ids.length) return;
+
+    setInvitingId(ids.length === 1 ? ids[0] : null);
+    startTransition(async () => {
+      try {
+        const result = await invitePeopleToEvent(ids, event.id);
+        applyAddedToEvent(event, ids, result.added, true);
+      } catch {
+        setItems(people);
+        setMessage("Could not invite to upcoming game.");
+      } finally {
+        setInvitingId(null);
+      }
+    });
+  }
+
   function invitePerson(person: PersonDTO) {
     const status = person.upcomingInviteStatus || "none";
     if (status === "invited") return;
@@ -765,8 +787,7 @@ export function Dashboard({
       selectedIds.size > 0 && selectedIds.has(person.id)
         ? [...selectedIds]
         : [person.id];
-    setInvitePersonIds(ids);
-    setInviteOpen(true);
+    inviteToNewestEvent(ids);
   }
 
   function requestUninvite(person: PersonDTO) {
@@ -1304,10 +1325,7 @@ export function Dashboard({
         onEditTags={() => setBulkTagsOpen(true)}
         onAddToEvent={() => setBulkEventOpen(true)}
         onAddToShortcut={() => setBulkShortcutOpen(true)}
-        onInvite={() => {
-          setInvitePersonIds([...selectedIds]);
-          setInviteOpen(true);
-        }}
+        onInvite={() => inviteToNewestEvent([...selectedIds])}
         onReset={requestBulkReset}
         onArchive={() => runBulkArchive(true)}
         onUnarchive={() => runBulkArchive(false)}
@@ -1472,20 +1490,6 @@ export function Dashboard({
         onClose={() => setBulkShortcutOpen(false)}
         onSaved={(list, added) => {
           applyAddedToEvent(list, [...selectedIds], added, false);
-        }}
-      />
-
-      <BulkEventModal
-        open={inviteOpen}
-        personIds={invitePersonIds}
-        events={upcomingEvents}
-        preferredEventId={
-          isEventTab && !isPastEventTab ? activeList?.id : null
-        }
-        mode="invite"
-        onClose={() => setInviteOpen(false)}
-        onSaved={(event, added) => {
-          applyAddedToEvent(event, invitePersonIds, added, true);
         }}
       />
 
