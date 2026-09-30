@@ -37,6 +37,7 @@ import {
   markUpcomingInvited,
   removePeopleFromList,
   resetUpcomingInvite,
+  bulkResetUpcomingInvite,
   saveListOrder,
 } from "@/app/actions/people";
 import type { CategoryDTO } from "@/lib/categories";
@@ -457,6 +458,7 @@ export function Dashboard({
   const [invitePersonIds, setInvitePersonIds] = useState<string[]>([]);
   const [invitingId, setInvitingId] = useState<string | null>(null);
   const [uninvitePerson, setUninvitePerson] = useState<PersonDTO | null>(null);
+  const [bulkResetConfirmOpen, setBulkResetConfirmOpen] = useState(false);
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
   const [shortcutSort, setShortcutSort] = useState<"rank" | "name">("rank");
   const [, startTransition] = useTransition();
@@ -813,6 +815,55 @@ export function Dashboard({
         setMessage("Could not uninvite.");
       } finally {
         setInvitingId(null);
+      }
+    });
+  }
+
+  function requestBulkReset() {
+    if (selectedIds.size < 1) return;
+    setBulkResetConfirmOpen(true);
+  }
+
+  function confirmBulkReset() {
+    const ids = [...selectedIds];
+    if (!ids.length) return;
+    setBulkResetConfirmOpen(false);
+    const fallbackEventId = isEventTab ? activeList?.id ?? null : null;
+    startTransition(async () => {
+      try {
+        const { results } = await bulkResetUpcomingInvite(ids, fallbackEventId);
+        const removedById = new Map(
+          results.map((r) => [r.id, r.removedFromEventId] as const),
+        );
+        setItems((prev) =>
+          prev.map((p) => {
+            if (!ids.includes(p.id)) return p;
+            const removedId = removedById.get(p.id) ?? null;
+            return {
+              ...p,
+              upcomingInviteStatus: "none",
+              upcomingInvitedOn: null,
+              upcomingInviteEventId: null,
+              sent:
+                p.sent &&
+                p.upcomingInvitedOn &&
+                p.sent === p.upcomingInvitedOn
+                  ? null
+                  : p.sent,
+              memberships: removedId
+                ? p.memberships.filter((m) => m.listId !== removedId)
+                : p.memberships,
+            };
+          }),
+        );
+        setSelectedIds(new Set());
+        setMessage(
+          `Reset invite for ${ids.length} ${ids.length === 1 ? "person" : "people"}.`,
+        );
+        window.setTimeout(() => setMessage(null), 2000);
+      } catch {
+        setItems(people);
+        setMessage("Could not reset invites.");
       }
     });
   }
@@ -1257,6 +1308,7 @@ export function Dashboard({
           setInvitePersonIds([...selectedIds]);
           setInviteOpen(true);
         }}
+        onReset={requestBulkReset}
         onArchive={() => runBulkArchive(true)}
         onUnarchive={() => runBulkArchive(false)}
         onDelete={runBulkDelete}
@@ -1444,6 +1496,19 @@ export function Dashboard({
         cancelLabel="Cancel"
         onConfirm={confirmUninvite}
         onCancel={() => setUninvitePerson(null)}
+      />
+
+      <ConfirmDialog
+        open={bulkResetConfirmOpen}
+        message={
+          selectedIds.size === 1
+            ? "Are you sure? This person will be removed from their invite event and their invite button will reset."
+            : `Are you sure? These ${selectedIds.size} people will be removed from their invite events and their invite buttons will reset.`
+        }
+        confirmLabel="Yes"
+        cancelLabel="Cancel"
+        onConfirm={confirmBulkReset}
+        onCancel={() => setBulkResetConfirmOpen(false)}
       />
 
       <ConfirmDialog

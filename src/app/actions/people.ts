@@ -719,6 +719,23 @@ export async function resetUpcomingInvite(
   };
 }
 
+export async function bulkResetUpcomingInvite(
+  personIds: string[],
+  fallbackEventId?: string | null,
+) {
+  await requireSession();
+  const uniqueIds = [...new Set(personIds.filter(Boolean))];
+  if (!uniqueIds.length) return { reset: 0, results: [] as Awaited<ReturnType<typeof resetUpcomingInvite>>[] };
+
+  const results = [];
+  for (const id of uniqueIds) {
+    results.push(await resetUpcomingInvite(id, fallbackEventId));
+  }
+
+  revalidatePath("/");
+  return { reset: results.length, results };
+}
+
 export async function setPersonArchived(id: string, archived: boolean) {
   const session = await requireSession();
   const archivedList = await getArchivedList();
