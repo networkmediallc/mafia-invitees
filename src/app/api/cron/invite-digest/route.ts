@@ -42,7 +42,8 @@ async function handle(request: Request) {
   }
 
   const result = await sendInviteAdditionDigest();
-  const status = result.reason === "send_failed" ? 502 : 200;
+  const status =
+    !result.sent && result.reason === "send_failed" ? 502 : 200;
   return NextResponse.json(result, { status });
 }
 
