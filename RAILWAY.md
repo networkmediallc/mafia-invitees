@@ -48,6 +48,12 @@ In the service → **Variables**, add:
 | `DATABASE_URL` | `file:/data/mafia.db` |
 | `APP_PASSWORD` | your shared login password |
 | `SESSION_SECRET` | run `openssl rand -hex 32` locally and paste the result |
+| `NOTIFY_EMAIL` | your email for invitee-addition digests |
+| `RESEND_API_KEY` | from [resend.com](https://resend.com) (free tier is fine) |
+| `EMAIL_FROM` | optional; default `Mafia Invite Desk <onboarding@resend.dev>` |
+| `CRON_SECRET` | optional; only needed if you hit `/api/cron/invite-digest` externally |
+
+The digest runs **once an hour inside the app** and only emails you if people were added to an **event** list since the last check. Until you verify a sending domain in Resend, `NOTIFY_EMAIL` must be the same address as your Resend account, and keep the default `EMAIL_FROM`.
 
 ---
 

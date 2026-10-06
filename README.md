@@ -11,6 +11,7 @@ Password-protected guest desk that replaces the Google Sheet for ranking, catego
 - Category checklist + filter
 - Plus-ones field (sheet column C)
 - Shared password login (name captured for edit attribution)
+- Optional hourly email digest when invitees are added to events
 
 ## Greenvelope
 

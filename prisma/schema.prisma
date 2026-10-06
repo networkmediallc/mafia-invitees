@@ -76,9 +76,10 @@ model Person {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  memberships ListMembership[]
-  attendances EventAttendance[]
-  categories  PersonCategory[]
+  memberships      ListMembership[]
+  attendances      EventAttendance[]
+  categories       PersonCategory[]
+  inviteAdditions  EventInviteAddition[]
 
   @@index([onQuickList, quickRank])
   @@index([onVegas, vegasRank])
@@ -123,7 +124,8 @@ model GuestList {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  memberships ListMembership[]
+  memberships     ListMembership[]
+  inviteAdditions EventInviteAddition[]
 }
 
 model ListMembership {
@@ -168,4 +170,21 @@ model EventAttendance {
 model AppMeta {
   key   String @id
   value String
+}
+
+/// Log of people newly added to event lists — used for hourly email digests.
+model EventInviteAddition {
+  id         String    @id @default(cuid())
+  personId   String
+  listId     String
+  addedBy    String
+  createdAt  DateTime  @default(now())
+  digestedAt DateTime?
+
+  person Person    @relation(fields: [personId], references: [id], onDelete: Cascade)
+  list   GuestList @relation(fields: [listId], references: [id], onDelete: Cascade)
+
+  @@index([digestedAt, createdAt])
+  @@index([listId])
+  @@index([personId])
 }

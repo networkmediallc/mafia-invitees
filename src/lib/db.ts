@@ -4,7 +4,7 @@ import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
 import { PrismaClient } from "@/generated/prisma/client";
 
 /** Bump when GuestList / Person fields change so the hot-reload singleton is replaced. */
-const PRISMA_SCHEMA_VERSION = 6;
+const PRISMA_SCHEMA_VERSION = 7;
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;

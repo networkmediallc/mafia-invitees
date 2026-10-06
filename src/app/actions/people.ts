@@ -15,6 +15,7 @@ import { prisma } from "@/lib/db";
 import { slugifyListName, toGuestListDTO } from "@/lib/list-kinds";
 import { syncRegionListsFromTags } from "@/lib/lists";
 import { attendanceSummaryFromStatuses } from "@/lib/people";
+import { recordEventInviteAdditions } from "@/lib/invite-additions";
 
 const personInput = z.object({
   firstName: z.string().min(1),
@@ -300,6 +301,7 @@ export async function addPeopleToList(personIds: string[], listId: string) {
   }
 
   let added = 0;
+  const addedIds: string[] = [];
   for (const personId of uniqueIds) {
     const person = await prisma.person.findUniqueOrThrow({
       where: { id: personId },
@@ -343,6 +345,11 @@ export async function addPeopleToList(personIds: string[], listId: string) {
       });
     }
     added += 1;
+    addedIds.push(personId);
+  }
+
+  if (list.kind === "event" && addedIds.length) {
+    await recordEventInviteAdditions(addedIds, listId, session.name);
   }
 
   revalidatePath("/");
