@@ -96,7 +96,7 @@ export async function sendInviteAdditionDigest(): Promise<DigestResult> {
   const apiKey = process.env.RESEND_API_KEY!.trim();
   const from =
     process.env.EMAIL_FROM?.trim() ||
-    "Mafia Invite Desk <onboarding@resend.dev>";
+    "Mafia Invite Desk <noreply@admin.secretmafiaclub.com>";
 
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",

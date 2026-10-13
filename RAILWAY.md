@@ -50,19 +50,12 @@ In the service → **Variables**, add:
 | `SESSION_SECRET` | run `openssl rand -hex 32` locally and paste the result |
 | `NOTIFY_EMAIL` | `dahni@networkmedia.com` |
 | `RESEND_API_KEY` | from [resend.com](https://resend.com) (free tier is fine) |
-| `EMAIL_FROM` | after domain setup: `Mafia Invite Desk <dahni@networkmedia.com>` |
+| `EMAIL_FROM` | `Mafia Invite Desk <noreply@admin.secretmafiaclub.com>` |
 | `CRON_SECRET` | optional; only needed if you hit `/api/cron/invite-digest` externally |
 
 The digest runs **once an hour inside the app** and only emails you if people were added to an **event** list since the last check.
 
-### Resend + Google Workspace (`networkmedia.com`)
-
-1. In Resend → **Domains** → add **networkmedia.com**.
-2. Add the DNS records Resend shows (usually in Google Admin → **Account** → **Domains** → your domain → **DNS**, or wherever `networkmedia.com` DNS is hosted).
-3. Wait until Resend shows the domain as **Verified**.
-4. In Railway, set `EMAIL_FROM` to `Mafia Invite Desk <dahni@networkmedia.com>` (or another address on that domain).
-
-Until the domain is verified, leave `EMAIL_FROM` unset (default `onboarding@resend.dev`) and confirm digests still arrive at `dahni@networkmedia.com`.
+Sending domain in Resend is **admin.secretmafiaclub.com** (verified). Digests go **to** `dahni@networkmedia.com` and **from** an address on that Resend domain.
 
 ---
 
